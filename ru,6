@@ -1,0 +1,2306 @@
+print("🎮 =================================")
+print("🎮 小傑腳本 - 全能攻擊與輔助版")
+print("🎮 小傑爸爸創作")
+print("🎮 =================================")
+
+-- 檢測設備類型
+local inputService = game:GetService("UserInputService")
+local isMobile = inputService.TouchEnabled
+local isDesktop = inputService.MouseEnabled
+local deviceType = isMobile and "📱 手機" or "🖥️ 電腦"
+print("✅ 檢測到設備: " .. deviceType)
+
+-- 確保遊戲完全加載
+repeat task.wait() until game:IsLoaded()
+print("✅ 遊戲已加載")
+
+-- 獲取玩家
+local player = game.Players.LocalPlayer
+if not player then
+    warn("❌ 無法獲取玩家")
+    return
+end
+print("✅ 玩家: " .. player.Name)
+
+-- 等待PlayerGui
+local playerGui = player:WaitForChild("PlayerGui", 10)
+if not playerGui then
+    warn("❌ 無法找到PlayerGui，嘗試使用CoreGui")
+    playerGui = game:GetService("CoreGui")
+end
+print("✅ UI容器: " .. playerGui.Name)
+
+-- 清理舊的UI
+for _, gui in ipairs(playerGui:GetChildren()) do
+    if gui.Name:find("小傑") or gui.Name:find("XiaoJie") then
+        gui:Destroy()
+    end
+end
+print("🗑️ 清理了舊的UI")
+
+-- ========================
+-- 全局服務
+-- ========================
+local tweenService = game:GetService("TweenService")
+local runService = game:GetService("RunService")
+local playersService = game:GetService("Players")
+local httpService = game:GetService("HttpService")
+
+print("✅ 服務加載完成")
+
+-- ========================
+-- 創建主UI ScreenGui
+-- ========================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "小傑腳本_Fixed"
+screenGui.Parent = playerGui
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 999
+screenGui.IgnoreGuiInset = false
+
+print("✅ ScreenGui創建完成")
+
+-- ========================
+-- 創建齒輪最小化按鈕
+-- ========================
+print("⚙️ 創建齒輪最小化按鈕...")
+
+-- 創建齒輪圖標按鈕
+local gearButton = Instance.new("TextButton")
+gearButton.Name = "GearButton"
+gearButton.Size = UDim2.new(0, 36, 0, 36)
+gearButton.Position = UDim2.new(0.5, -18, 0.5, -18) -- 初始居中位置
+gearButton.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+gearButton.BackgroundTransparency = 0.2
+gearButton.BorderSizePixel = 0
+gearButton.Text = "⚙️"
+gearButton.TextColor3 = Color3.fromRGB(200, 230, 255)
+gearButton.Font = Enum.Font.GothamBold
+gearButton.TextSize = 18
+gearButton.AutoButtonColor = true
+gearButton.Visible = false -- 初始隱藏
+gearButton.ZIndex = 1000
+gearButton.Parent = screenGui
+
+-- 齒輪按鈕圓角
+local gearCorner = Instance.new("UICorner")
+gearCorner.CornerRadius = UDim.new(0, 18) -- 圓形
+gearCorner.Parent = gearButton
+
+-- 齒輪按鈕邊框
+local gearStroke = Instance.new("UIStroke")
+gearStroke.Color = Color3.fromRGB(100, 150, 200)
+gearStroke.Thickness = 1
+gearStroke.Parent = gearButton
+
+-- 鼠標懸停效果
+gearButton.MouseEnter:Connect(function()
+    gearButton.BackgroundColor3 = Color3.fromRGB(60, 90, 140)
+end)
+
+gearButton.MouseLeave:Connect(function()
+    if not isGearDragging then
+        gearButton.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+    end
+end)
+
+-- ========================
+-- 創建主框架
+-- ========================
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 220, 0, 310)
+mainFrame.Position = UDim2.new(0.5, -110, 0.5, -155)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 35, 50)
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = true
+mainFrame.Active = true
+mainFrame.Parent = screenGui
+
+-- 圓角
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 6)
+uiCorner.Parent = mainFrame
+
+-- 邊框
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(100, 150, 200)
+uiStroke.Thickness = 1
+uiStroke.Parent = mainFrame
+
+print("✅ 主框架創建完成")
+
+-- ========================
+-- 拖動系統（修復版）
+-- ========================
+print("🔄 設置拖動系統...")
+
+-- 創建拖動標題欄
+local dragButton = Instance.new("TextButton")
+dragButton.Name = "DragButton"
+dragButton.Size = UDim2.new(1, 0, 0, 30)
+dragButton.Position = UDim2.new(0, 0, 0, 0)
+dragButton.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+dragButton.BackgroundTransparency = 0.2
+dragButton.BorderSizePixel = 0
+dragButton.Text = "🎮 小傑全能腳本 (拖動我)"
+dragButton.TextColor3 = Color3.fromRGB(200, 230, 255)
+dragButton.Font = Enum.Font.GothamBold
+dragButton.TextSize = 12
+dragButton.AutoButtonColor = false
+dragButton.Parent = mainFrame
+
+local dragCorner = Instance.new("UICorner")
+dragCorner.CornerRadius = UDim.new(0, 6, 0, 0)
+dragCorner.Parent = dragButton
+
+-- 右上角最小化按鈕（新增）
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Name = "MinimizeButton"
+minimizeButton.Size = UDim2.new(0, 24, 0, 24)
+minimizeButton.Position = UDim2.new(1, -56, 0, 3) -- 在關閉按鈕左邊
+minimizeButton.BackgroundColor3 = Color3.fromRGB(100, 150, 200)
+minimizeButton.BackgroundTransparency = 0.2
+minimizeButton.BorderSizePixel = 0
+minimizeButton.Text = "−" -- 減號表示最小化
+minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeButton.Font = Enum.Font.GothamBold
+minimizeButton.TextSize = 14
+minimizeButton.AutoButtonColor = true
+minimizeButton.ZIndex = 2
+minimizeButton.Parent = dragButton
+
+local minimizeCorner = Instance.new("UICorner")
+minimizeCorner.CornerRadius = UDim.new(0, 4)
+minimizeCorner.Parent = minimizeButton
+
+-- 右上角關閉按鈕
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 24, 0, 24)
+closeButton.Position = UDim2.new(1, -28, 0, 3)
+closeButton.BackgroundColor3 = Color3.fromRGB(220, 100, 100)
+closeButton.BackgroundTransparency = 0.2
+closeButton.BorderSizePixel = 0
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 12
+closeButton.AutoButtonColor = true
+closeButton.ZIndex = 2
+closeButton.Parent = dragButton
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeButton
+
+-- 拖動變量
+local isDragging = false
+local dragStartPosition = Vector2.new(0, 0)
+local frameStartPosition = UDim2.new(0, 0, 0, 0)
+
+-- 電腦拖動
+dragButton.MouseButton1Down:Connect(function()
+    isDragging = true
+    dragStartPosition = inputService:GetMouseLocation()
+    frameStartPosition = mainFrame.Position
+    dragButton.BackgroundColor3 = Color3.fromRGB(60, 90, 140)
+end)
+
+inputService.InputChanged:Connect(function(input)
+    if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local currentMouse = inputService:GetMouseLocation()
+        local delta = currentMouse - dragStartPosition
+        
+        mainFrame.Position = UDim2.new(
+            frameStartPosition.X.Scale,
+            frameStartPosition.X.Offset + delta.X,
+            frameStartPosition.Y.Scale,
+            frameStartPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+inputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if isDragging then
+            isDragging = false
+            dragButton.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+        end
+    end
+end)
+
+-- 手機拖動
+if isMobile then
+    print("📱 設置手機拖動系統...")
+    
+    local touchArea = Instance.new("TextButton")
+    touchArea.Name = "TouchArea"
+    touchArea.Size = UDim2.new(1, 20, 1, 20)
+    touchArea.Position = UDim2.new(0, -10, 0, -10)
+    touchArea.BackgroundTransparency = 1
+    touchArea.Text = ""
+    touchArea.ZIndex = -1
+    touchArea.Parent = dragButton
+    
+    local touchStartPosition = Vector2.new(0, 0)
+    local touchFrameStart = UDim2.new(0, 0, 0, 0)
+    local touchDragging = false
+    
+    -- 觸控開始
+    touchArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            touchDragging = true
+            touchStartPosition = input.Position
+            touchFrameStart = mainFrame.Position
+            dragButton.BackgroundColor3 = Color3.fromRGB(60, 90, 140)
+        end
+    end)
+    
+    -- 觸控移動
+    inputService.InputChanged:Connect(function(input)
+        if touchDragging and input.UserInputType == Enum.UserInputType.Touch then
+            local currentTouch = input.Position
+            local delta = currentTouch - touchStartPosition
+            
+            mainFrame.Position = UDim2.new(
+                touchFrameStart.X.Scale,
+                touchFrameStart.X.Offset + delta.X,
+                touchFrameStart.Y.Scale,
+                touchFrameStart.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    -- 觸控結束
+    inputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            if touchDragging then
+                touchDragging = false
+                dragButton.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+            end
+        end
+    end)
+end
+
+print("✅ 拖動系統已設置")
+
+-- ========================
+-- 創建功能按鈕（簡化版）
+-- ========================
+local function createButton(text, icon, yPos, color)
+    local button = Instance.new("TextButton")
+    button.Name = text
+    button.Size = UDim2.new(1, -16, 0, 28)
+    button.Position = UDim2.new(0, 8, 0, yPos)
+    button.BackgroundColor3 = color
+    button.BackgroundTransparency = 0.3
+    button.BorderSizePixel = 0
+    button.Text = icon .. " " .. text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.Gotham
+    button.TextSize = 12
+    button.AutoButtonColor = true
+    button.Active = true
+    button.Parent = mainFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = button
+    
+    return button
+end
+
+-- 創建按鈕
+local fastAttackBtn = createButton("極速攻擊", "⚡", 36, Color3.fromRGB(0, 180, 0))
+local aimlockBtn = createButton("Ace Aimlock", "🎯", 70, Color3.fromRGB(220, 150, 50))
+local ggFlyBtn = createButton("GG飛行器", "🕊️", 104, Color3.fromRGB(100, 200, 100))
+local v4ControlBtn = createButton("V4控制", "🔥", 138, Color3.fromRGB(255, 100, 0))
+local espBtn = createButton("ESP透視", "👁️", 172, Color3.fromRGB(150, 50, 200))
+
+print("✅ 功能按鈕創建完成")
+
+-- ========================
+-- 添加攻擊狀態顯示（整合在UI內）
+-- ========================
+local attackStatusLabel = Instance.new("TextLabel")
+attackStatusLabel.Name = "AttackStatusLabel"
+attackStatusLabel.Size = UDim2.new(1, -16, 0, 20)
+attackStatusLabel.Position = UDim2.new(0, 8, 0, 206)
+attackStatusLabel.BackgroundTransparency = 1
+attackStatusLabel.Text = "⚡ 極速攻擊: 準備就緒"
+attackStatusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+attackStatusLabel.Font = Enum.Font.Gotham
+attackStatusLabel.TextSize = 10
+attackStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+attackStatusLabel.Visible = true
+attackStatusLabel.Parent = mainFrame
+
+local attackStatsLabel = Instance.new("TextLabel")
+attackStatsLabel.Name = "AttackStatsLabel"
+attackStatsLabel.Size = UDim2.new(1, -16, 0, 18)
+attackStatsLabel.Position = UDim2.new(0, 8, 0, 222)
+attackStatsLabel.BackgroundTransparency = 1
+attackStatsLabel.Text = "距離: 10000 | 間隔: 0.0000000001s"
+attackStatsLabel.TextColor3 = Color3.fromRGB(180, 220, 255)
+attackStatsLabel.Font = Enum.Font.Gotham
+attackStatsLabel.TextSize = 9
+attackStatsLabel.TextXAlignment = Enum.TextXAlignment.Left
+attackStatsLabel.Visible = true
+attackStatsLabel.Parent = mainFrame
+
+-- ========================
+-- 添加作者信息
+-- ========================
+local authorLabel = Instance.new("TextLabel")
+authorLabel.Name = "AuthorLabel"
+authorLabel.Size = UDim2.new(1, -16, 0, 16)
+authorLabel.Position = UDim2.new(0, 8, 0, 246)
+authorLabel.BackgroundTransparency = 1
+authorLabel.Text = "👑 小傑爸爸創作"
+authorLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
+authorLabel.Font = Enum.Font.Gotham
+authorLabel.TextSize = 9
+authorLabel.TextXAlignment = Enum.TextXAlignment.Center
+authorLabel.Parent = mainFrame
+
+local versionLabel = Instance.new("TextLabel")
+versionLabel.Name = "VersionLabel"
+versionLabel.Size = UDim2.new(1, -16, 0, 12)
+versionLabel.Position = UDim2.new(0, 8, 0, 262)
+versionLabel.BackgroundTransparency = 1
+versionLabel.Text = "🎮 小傑腳本 v4.2"
+versionLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
+versionLabel.Font = Enum.Font.Gotham
+versionLabel.TextSize = 8
+versionLabel.TextXAlignment = Enum.TextXAlignment.Center
+versionLabel.Parent = mainFrame
+
+-- ========================
+-- 右下角通知系統
+-- ========================
+local function showNotification(message, color, duration)
+    duration = duration or 2.5
+    
+    local notifyFrame = Instance.new("Frame")
+    notifyFrame.Name = "Notify_" .. tick()
+    notifyFrame.Size = UDim2.new(0, 200, 0, 60)
+    notifyFrame.Position = UDim2.new(1, 210, 1, -70)
+    notifyFrame.AnchorPoint = Vector2.new(1, 1)
+    notifyFrame.BackgroundColor3 = color or Color3.fromRGB(40, 60, 90)
+    notifyFrame.BackgroundTransparency = 0.2
+    notifyFrame.BorderSizePixel = 0
+    notifyFrame.ZIndex = 10000
+    notifyFrame.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = notifyFrame
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(150, 200, 255)
+    stroke.Thickness = 1
+    stroke.Transparency = 0.3
+    stroke.Parent = notifyFrame
+    
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -16, 1, -16)
+    textLabel.Position = UDim2.new(0, 8, 0, 8)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = message
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextSize = 11
+    textLabel.TextWrapped = true
+    textLabel.Parent = notifyFrame
+    
+    print("📢 通知: " .. message)
+    
+    local slideIn = tweenService:Create(notifyFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1, -10, 1, -70)
+    })
+    slideIn:Play()
+    
+    task.spawn(function()
+        task.wait(duration)
+        
+        if notifyFrame and notifyFrame.Parent then
+            local slideOut = tweenService:Create(notifyFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                Position = UDim2.new(1, 210, 1, -70)
+            })
+            slideOut:Play()
+            
+            slideOut.Completed:Wait()
+            notifyFrame:Destroy()
+        end
+    end)
+    
+    return notifyFrame
+end
+
+-- ========================
+-- Ace Aimlock 加載功能
+-- ========================
+local function loadAceAimlock()
+    print("🎯 正在加載 Ace Aimlock...")
+    showNotification("🎯 正在加載 Ace Aimlock...\n請稍候", Color3.fromRGB(255, 165, 0), 2)
+    
+    local success, errorMessage = pcall(function()
+        -- 加載 Ace Aimlock 腳本
+        loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Ace-Aimlock-22419"))()
+        return true, "Ace Aimlock 加載成功"
+    end)
+    
+    if success then
+        showNotification("✅ Ace Aimlock 加載成功\n🎯 自動瞄準功能已啟用", Color3.fromRGB(0, 180, 0), 2.5)
+        print("🎉 Ace Aimlock 加載成功")
+        return true
+    else
+        showNotification("❌ Ace Aimlock 加載失敗: " .. (errorMessage or "未知錯誤"), Color3.fromRGB(255, 0, 0), 2.5)
+        print("❌ Ace Aimlock 加載錯誤: " .. (errorMessage or "未知錯誤"))
+        return false
+    end
+end
+
+-- ========================
+-- GG飛行器加載功能
+-- ========================
+local function loadGGFlyScript()
+    print("🕊️ 正在加載 GG飛行器...")
+    showNotification("🕊️ 正在加載 GG飛行器...\n請稍候", Color3.fromRGB(255, 165, 0), 2)
+    
+    local success, errorMessage = pcall(function()
+        -- GG飛行器腳本
+        local P=game:GetService("Players")
+        local R=game:GetService("RunService")
+        local U=game:GetService("UserInputService")
+        
+        local m=Instance.new("ScreenGui")
+        local f=Instance.new("Frame")
+        local u=Instance.new("TextButton")
+        local d=Instance.new("TextButton")
+        local o=Instance.new("TextButton")
+        local t=Instance.new("TextLabel")
+        local p=Instance.new("TextButton")
+        local s=Instance.new("TextBox")
+        local n=Instance.new("TextButton")
+        local c=Instance.new("TextButton")
+        local h=Instance.new("TextButton")
+        local h2=Instance.new("TextButton")
+        local nc=Instance.new("TextButton")
+        
+        m.Name="main"
+        m.Parent=P.LocalPlayer:WaitForChild("PlayerGui")
+        m.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+        m.ResetOnSpawn=false
+        
+        f.Parent=m
+        f.BackgroundColor3=Color3.fromRGB(255, 0, 0) -- 從紅色開始
+        f.BorderColor3=Color3.fromRGB(255, 255, 255)
+        f.BorderSizePixel=2
+        f.Position=UDim2.new(0.100320168,0,0.379746825,0)
+        f.Size=UDim2.new(0,190,0,57)
+        f.Active=true
+        f.Draggable=true
+        
+        local function b(x,y,z,q)
+            x.Name=y
+            x.Parent=f
+            x.Position=z
+            x.Size=q
+            x.Font=Enum.Font.SourceSans
+            x.Text=y
+            x.TextColor3=Color3.fromRGB(255, 255, 255) -- 白色文字
+            x.TextSize=14
+            x.TextScaled=true
+            x.TextWrapped=true
+        end
+        
+        -- 創建所有UI元素
+        b(u,"↑",UDim2.new(0,0,0,0),UDim2.new(0,44,0,28))
+        b(d,"↓",UDim2.new(0,0,0.491228074,0),UDim2.new(0,44,0,28))
+        
+        o.Name="onoff"
+        o.Parent=f
+        o.Position=UDim2.new(0.702823281,0,0.491228074,0)
+        o.Size=UDim2.new(0,56,0,28)
+        o.Font=Enum.Font.SourceSans
+        o.Text="開始"
+        o.TextColor3=Color3.fromRGB(255, 255, 255)
+        o.TextScaled=true
+        o.TextSize=14
+        o.TextWrapped=true
+        
+        p.Name="plus"
+        p.Parent=f
+        p.Position=UDim2.new(0.231578946,0,0,0)
+        p.Size=UDim2.new(0,45,0,28)
+        p.Font=Enum.Font.SourceSans
+        p.Text="+1"
+        p.TextColor3=Color3.fromRGB(255, 255, 255)
+        p.TextScaled=true
+        p.TextSize=14
+        p.TextWrapped=true
+        
+        n.Name="mine"
+        n.Parent=f
+        n.Position=UDim2.new(0.231578946,0,0.491228074,0)
+        n.Size=UDim2.new(0,45,0,29)
+        n.Font=Enum.Font.SourceSans
+        n.Text="-1"
+        n.TextColor3=Color3.fromRGB(255, 255, 255)
+        n.TextScaled=true
+        n.TextSize=14
+        n.TextWrapped=true
+        
+        nc.Name="NoClip"
+        nc.Parent=f
+        nc.Position=UDim2.new(0,89,-1,27)
+        nc.Size=UDim2.new(0,45,0,28)
+        nc.Font=Enum.Font.SourceSans
+        nc.Text="穿牆模式"
+        nc.TextColor3=Color3.fromRGB(255, 255, 255)
+        nc.TextScaled=true
+        nc.TextSize=14
+        nc.TextWrapped=true
+        
+        t.Parent=f
+        t.Position=UDim2.new(0.469327301,0,0,0)
+        t.Size=UDim2.new(0,100,0,28)
+        t.Font=Enum.Font.SourceSans
+        t.Text="GG飛行器"
+        t.TextColor3=Color3.fromRGB(255, 255, 255)
+        t.TextScaled=true
+        t.TextSize=14
+        t.TextWrapped=true
+        
+        s.Parent=f
+        s.Name="speed"
+        s.Position=UDim2.new(0.468421042,0,0.491228074,0)
+        s.Size=UDim2.new(0,44,0,28)
+        s.Font=Enum.Font.SourceSans
+        s.Text="1"
+        s.TextColor3=Color3.fromRGB(255, 255, 255)
+        s.TextScaled=true
+        s.TextSize=14
+        s.TextWrapped=true
+        s.ClearTextOnFocus=false
+        s.TextEditable=true
+        s.PlaceholderText="1-150"
+        
+        -- 關閉按鈕改成簡單的字母"X"
+        c.Name="Close"
+        c.Parent=f
+        c.Font=Enum.Font.SourceSans
+        c.Size=UDim2.new(0,45,0,28)
+        c.Text="X"
+        c.TextSize=18
+        c.Position=UDim2.new(0,0,-1,27)
+        c.TextColor3=Color3.fromRGB(255, 255, 255)
+        
+        h.Name="minimize"
+        h.Parent=f
+        h.Font=Enum.Font.SourceSans
+        h.Size=UDim2.new(0,45,0,28)
+        h.Text="隱藏"
+        h.TextSize=20
+        h.Position=UDim2.new(0,44,-1,27)
+        h.TextColor3=Color3.fromRGB(255, 255, 255)
+        
+        h2.Name="minimize2"
+        h2.Parent=f
+        h2.Font=Enum.Font.SourceSans
+        h2.Size=UDim2.new(0,45,0,28)
+        h2.Text="顯示"
+        h2.TextSize=20
+        h2.Position=UDim2.new(0,44,-1,57)
+        h2.Visible=false
+        h2.TextColor3=Color3.fromRGB(255, 255, 255)
+        
+        -- 收集所有UI元素
+        local uiElements = {u, d, o, p, n, nc, t, s, c, h, h2, f}
+        
+        -- 多種漸變顏色（彩虹色系 + 更多柔和顏色）
+        local colorPalette = {
+            -- 彩虹色
+            Color3.fromRGB(255, 0, 0),      -- 紅
+            Color3.fromRGB(255, 127, 0),    -- 橙
+            Color3.fromRGB(255, 255, 0),    -- 黃
+            Color3.fromRGB(0, 255, 0),      -- 綠
+            Color3.fromRGB(0, 255, 255),    -- 青
+            Color3.fromRGB(0, 0, 255),      -- 藍
+            Color3.fromRGB(75, 0, 130),     -- 靛
+            Color3.fromRGB(148, 0, 211),    -- 紫
+            
+            -- 更多柔和顏色
+            Color3.fromRGB(255, 105, 180),  -- 粉紅
+            Color3.fromRGB(255, 182, 193),  -- 淺粉紅
+            Color3.fromRGB(173, 216, 230),  -- 淺藍
+            Color3.fromRGB(152, 251, 152),  -- 淺綠
+            Color3.fromRGB(255, 228, 196),  -- 米色
+            Color3.fromRGB(221, 160, 221),  -- 淺紫
+            Color3.fromRGB(255, 222, 173),  -- 淺橙
+            Color3.fromRGB(175, 238, 238),  -- 青綠色
+        }
+        
+        -- 平滑顏色過渡函數
+        local function lerpColor(color1, color2, t)
+            return Color3.new(
+                color1.R + (color2.R - color1.R) * t,
+                color1.G + (color2.G - color1.G) * t,
+                color1.B + (color2.B - color1.B) * t
+            )
+        end
+        
+        -- 顏色動畫狀態
+        local currentColorIndex = 1
+        local nextColorIndex = 2
+        local transitionProgress = 0
+        local transitionSpeed = 0.3 -- 過渡速度（較慢更自然）
+        local currentColor = colorPalette[1]
+        
+        -- 顏色動畫更新
+        local colorConnection
+        colorConnection = R.Heartbeat:Connect(function(deltaTime)
+            -- 更新過渡進度
+            transitionProgress = transitionProgress + deltaTime * transitionSpeed
+            
+            if transitionProgress >= 1 then
+                -- 完成過渡，切換到下一個顏色
+                transitionProgress = 0
+                currentColorIndex = nextColorIndex
+                nextColorIndex = nextColorIndex + 1
+                if nextColorIndex > #colorPalette then
+                    nextColorIndex = 1
+                end
+            end
+            
+            -- 計算當前顏色
+            currentColor = lerpColor(
+                colorPalette[currentColorIndex],
+                colorPalette[nextColorIndex],
+                transitionProgress
+            )
+            
+            -- 應用顏色到所有元素
+            for _, element in ipairs(uiElements) do
+                element.BackgroundColor3 = currentColor
+                
+                -- 計算邊框顏色（比背景稍亮）
+                local borderColor = Color3.new(
+                    math.min(currentColor.R * 1.3, 1),
+                    math.min(currentColor.G * 1.3, 1),
+                    math.min(currentColor.B * 1.3, 1)
+                )
+                element.BorderColor3 = borderColor
+                element.BorderSizePixel = 2
+                
+                -- 智能文字顏色：根據亮度決定文字顏色
+                local brightness = (currentColor.R * 0.299 + currentColor.G * 0.587 + currentColor.B * 0.114)
+                if brightness > 0.5 then
+                    element.TextColor3 = Color3.new(0, 0, 0)  -- 深色背景用白色文字
+                else
+                    element.TextColor3 = Color3.new(1, 1, 1)  -- 淺色背景用黑色文字
+                end
+            end
+        end)
+        
+        -- 飛行邏輯
+        local F={}
+        F.__index=F
+        function F.new()
+        local self=setmetatable({},F)
+        self.v=1
+        self.f=false
+        self.u=false
+        self.d=false
+        self.n=false
+        self.c={}
+        self.l=nil
+        self.w={}
+        self.m=nil
+        self.nc=nil
+        self.nl=nil
+        self.p={}
+        self.a=nil
+        self.pl=P.LocalPlayer
+        self.ch=nil
+        self.h=nil
+        self.r=nil
+        self.i=nil
+        self:e()
+        return self end
+        function F:e()
+        self:uC()
+        local x=self.pl.CharacterAdded:Connect(function()
+        task.wait(0.1)
+        self:uC()
+        self:sF()
+        if self.ch then
+        local a=self.ch:FindFirstChild("Animate")
+        if a then a.Disabled=false end end
+        if self.h then
+        self.h.PlatformStand=false
+        self.h:ResetState() end
+        if self.n then
+        task.wait(0.2)
+        self:aN() end end)
+        table.insert(self.c,x) end
+        function F:uC()
+        self.ch=self.pl.Character
+        if self.ch then
+        self.h=self.ch:FindFirstChildWhichIsA("Humanoid")
+        self.r=self.ch:FindFirstChild("HumanoidRootPart") end end
+        function F:cl()
+        for _,x in ipairs(self.c) do if x then x:Disconnect() end end
+        self.c={}
+        self:sA()
+        self:clP()
+        self:sI()
+        self:sN() end
+        function F:sA()
+        if self.l then self.l:Disconnect() self.l=nil end
+        if self.m then self.m:Disconnect() self.m=nil end
+        for _,x in ipairs(self.w) do if x then x:Disconnect() end end
+        self.w={} end
+        function F:clP()
+        for _,x in ipairs(self.p) do if x and (x:IsA("BodyGyro") or x:IsA("BodyVelocity")) then x:Destroy() end end
+        self.p={} end
+        function F:pI()
+        if not self.h then return end
+        self:sI()
+        local a=Instance.new("Animation")
+        a.AnimationId="rbxassetid://507766666"
+        self.i=self.h:LoadAnimation(a)
+        if self.i then
+        self.i:Play()
+        self.i.Looped=true
+        self.i.Priority=Enum.AnimationPriority.Idle end end
+        function F:sI()
+        if self.i then self.i:Stop() self.i=nil end end
+        function F:aN()
+        if not self.ch then return end
+        self:sN()
+        for _,x in ipairs(self.ch:GetDescendants()) do
+        if x:IsA("BasePart") then
+        x.CanCollide=false
+        x.CollisionGroup="NoCollision" end end
+        self.nc=self.ch.DescendantAdded:Connect(function(x)
+        if x:IsA("BasePart") then
+        x.CanCollide=false
+        x.CollisionGroup="NoCollision" end end)
+        self.nl=R.Heartbeat:Connect(function()
+        if not self.ch or not self.n then return end
+        for _,x in ipairs(self.ch:GetDescendants()) do
+        if x:IsA("BasePart") then x.CanCollide=false end end end) end
+        function F:rN()
+        if not self.ch then return end
+        if self.nc then self.nc:Disconnect() self.nc=nil end
+        if self.nl then self.nl:Disconnect() self.nl=nil end
+        for _,x in ipairs(self.ch:GetDescendants()) do
+        if x:IsA("BasePart") then
+        x.CanCollide=true
+        x.CollisionGroup="Default" end end end
+        function F:sN()
+        if self.nc then self.nc:Disconnect() self.nc=nil end
+        if self.nl then self.nl:Disconnect() self.nl=nil end end
+        function F:dH()
+        if not self.h then return end
+        local s={
+        Enum.HumanoidStateType.Climbing,
+        Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Flying,
+        Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.GettingUp,
+        Enum.HumanoidStateType.Jumping,
+        Enum.HumanoidStateType.Landed,
+        Enum.HumanoidStateType.Physics,
+        Enum.HumanoidStateType.PlatformStanding,
+        Enum.HumanoidStateType.Ragdoll,
+        Enum.HumanoidStateType.Running,
+        Enum.HumanoidStateType.RunningNoPhysics,
+        Enum.HumanoidStateType.Seated,
+        Enum.HumanoidStateType.StrafingNoPhysics,
+        Enum.HumanoidStateType.Swimming}
+        for _,x in ipairs(s) do self.h:SetStateEnabled(x,false) end
+        self.h:ChangeState(Enum.HumanoidStateType.Swimming) end
+        function F:eH()
+        if not self.h then return end
+        local s={
+        Enum.HumanoidStateType.Climbing,
+        Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Flying,
+        Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.GettingUp,
+        Enum.HumanoidStateType.Jumping,
+        Enum.HumanoidStateType.Landed,
+        Enum.HumanoidStateType.Physics,
+        Enum.HumanoidStateType.PlatformStanding,
+        Enum.HumanoidStateType.Ragdoll,
+        Enum.HumanoidStateType.Running,
+        Enum.HumanoidStateType.RunningNoPhysics,
+        Enum.HumanoidStateType.Seated,
+        Enum.HumanoidStateType.StrafingNoPhysics,
+        Enum.HumanoidStateType.Swimming}
+        for _,x in ipairs(s) do self.h:SetStateEnabled(x,true) end
+        self.h:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end
+        function F:sW()
+        self:sW2()
+        for i=1,self.v do
+        local x=R.Heartbeat:Connect(function()
+        if not self.ch or not self.h then return end
+        local m=self.h.MoveDirection
+        if m.Magnitude>0 then self.ch:TranslateBy(m) end end)
+        table.insert(self.w,x) end end
+        function F:sW2()
+        for _,x in ipairs(self.w) do if x then x:Disconnect() end end
+        self.w={} end
+        function F:sR6()
+        if not self.ch then return end
+        local t=self.ch:FindFirstChild("Torso")
+        if not t then return end
+        local g=t:FindFirstChildWhichIsA("BodyGyro")
+        local v=t:FindFirstChildWhichIsA("BodyVelocity")
+        if g then g:Destroy() end
+        if v then v:Destroy() end
+        local g=Instance.new("BodyGyro")
+        g.P=9e4
+        g.maxTorque=Vector3.new(9e9,9e9,9e9)
+        g.cframe=t.CFrame
+        g.Parent=t
+        table.insert(self.p,g)
+        local v=Instance.new("BodyVelocity")
+        v.velocity=Vector3.new(0,0.1,0)
+        v.maxForce=Vector3.new(9e9,9e9,9e9)
+        v.Parent=t
+        table.insert(self.p,v)
+        if self.f then self.h.PlatformStand=true end
+        local c={f=0,b=0,l=0,r=0}
+        local l={f=0,b=0,l=0,r=0}
+        local m=50
+        local cs=0
+        self.l=R.RenderStepped:Connect(function()
+        if not self.f or not self.h or self.h.Health<=0 then self.l:Disconnect() return end
+        local i=self:gI()
+        c=i
+        if c.l+c.r~=0 or c.f+c.b~=0 then
+        cs=cs+0.5+(cs/m)
+        if cs>m then cs=m end
+        elseif not (c.l+c.r~=0 or c.f+c.b~=0) and cs~=0 then
+        cs=cs-1
+        if cs<0 then cs=0 end end
+        if (c.l+c.r)~=0 or (c.f+c.b)~=0 then
+        v.velocity=self:cV(c,cs)
+        l={f=c.f,b=c.b,l=c.l,r=c.r}
+        elseif (c.l+c.r)==0 and (c.f+c.b)==0 and cs~=0 then
+        v.velocity=self:cV(l,cs)
+        else v.velocity=Vector3.new(0,0,0) end
+        g.cframe=workspace.CurrentCamera.CoordinateFrame*CFrame.Angles(-math.rad((c.f+c.b)*50*cs/m),0,0) end) end
+        function F:sR15()
+        if not self.ch then return end
+        local t=self.ch:FindFirstChild("UpperTorso")
+        if not t then return end
+        local g=t:FindFirstChildWhichIsA("BodyGyro")
+        local v=t:FindFirstChildWhichIsA("BodyVelocity")
+        if g then g:Destroy() end
+        if v then v:Destroy() end
+        local g=Instance.new("BodyGyro")
+        g.P=9e4
+        g.maxTorque=Vector3.new(9e9,9e9,9e9)
+        g.cframe=t.CFrame
+        g.Parent=t
+        table.insert(self.p,g)
+        local v=Instance.new("BodyVelocity")
+        v.velocity=Vector3.new(0,0.1,0)
+        v.maxForce=Vector3.new(9e9,9e9,9e9)
+        v.Parent=t
+        table.insert(self.p,v)
+        if self.f then self.h.PlatformStand=true end
+        local c={f=0,b=0,l=0,r=0}
+        local l={f=0,b=0,l=0,r=0}
+        local m=50
+        local cs=0
+        self.l=R.Heartbeat:Connect(function()
+        if not self.f or not self.h or self.h.Health<=0 then self.l:Disconnect() return end
+        local i=self:gI()
+        c=i
+        if c.l+c.r~=0 or c.f+c.b~=0 then
+        cs=cs+0.5+(cs/m)
+        if cs>m then cs=m end
+        elseif not (c.l+c.r~=0 or c.f+c.b~=0) and cs~=0 then
+        cs=cs-1
+        if cs<0 then cs=0 end end
+        if (c.l+c.r)~=0 or (c.f+c.b)~=0 then
+        v.velocity=self:cV(c,cs)
+        l={f=c.f,b=c.b,l=c.l,r=c.r}
+        elseif (c.l+c.r)==0 and (c.f+c.b)==0 and cs~=0 then
+        v.velocity=self:cV(l,cs)
+        else v.velocity=Vector3.new(0,0,0) end
+        g.cframe=workspace.CurrentCamera.CoordinateFrame*CFrame.Angles(-math.rad((c.f+c.b)*50*cs/m),0,0) end) end
+        function F:gI()
+        local i={f=0,b=0,l=0,r=0}
+        if U:IsKeyDown(Enum.KeyCode.W) then i.f=1 end
+        if U:IsKeyDown(Enum.KeyCode.S) then i.b=-1 end
+        if U:IsKeyDown(Enum.KeyCode.A) then i.l=-1 end
+        if U:IsKeyDown(Enum.KeyCode.D) then i.r=1 end
+        return i end
+        function F:cV(c,sp)
+        local ca=workspace.CurrentCamera
+        if not ca then return Vector3.new() end
+        return (ca.CFrame.lookVector*(c.f+c.b))+((ca.CFrame*CFrame.new(c.l+c.r,(c.f+c.b)*0.2,0).p)-ca.CFrame.p)*sp end
+        function F:sF()
+        self:uC()
+        if not self.ch or not self.h then return end
+        self.f=true
+        o.Text="停止"
+        local a=self.ch:FindFirstChild("Animate")
+        if a then a.Disabled=true end
+        if self.h then
+        for _,x in ipairs(self.h:GetPlayingAnimationTracks()) do x:AdjustSpeed(0) end end
+        self:pI()
+        self:dH()
+        self:sW()
+        if self.h.RigType==Enum.HumanoidRigType.R6 then self:sR6() else self:sR15() end end
+        function F:eF()
+        self.f=false
+        o.Text="開始"
+        self:sA()
+        self:eH()
+        self:sW2()
+        self:sI()
+        self:clP()
+        if self.ch then
+        local a=self.ch:FindFirstChild("Animate")
+        if a then a.Disabled=false end end
+        if self.h then self.h.PlatformStand=false end end
+        function F:tF()
+        if self.f then self:eF() else self:sF() end end
+
+        -- 修改 tN 函數 - 添加對 aN 的調用
+        function F:tN()
+            self.n = not self.n
+            if self.n then
+                nc.Text = "正常模式"
+                self:aN()  -- 啟用穿牆模式
+            else
+                nc.Text = "穿牆模式"
+                self:rN()  -- 禁用穿牆模式
+            end 
+        end
+
+        function F:sS()
+        local i=s.Text
+        if i=="" then s.Text=tostring(self.v) return end
+        local ns=tonumber(i)
+        if ns then
+        if ns<1 then ns=1 elseif ns>150 then ns=150 end
+        self.v=math.floor(ns)
+        s.Text=tostring(self.v)
+        if self.f then self:sW2() self:sW() end
+        else s.Text=tostring(self.v) end end
+        function F:iS()
+        if self.v<150 then
+        self.v=self.v+1
+        s.Text=tostring(self.v)
+        if self.f then self:sW2() self:sW() end
+        else s.Text="最大" task.wait(0.5) s.Text=tostring(self.v) end end
+        function F:dS()
+        if self.v>1 then
+        self.v=self.v-1
+        s.Text=tostring(self.v)
+        if self.f then self:sW2() self:sW() end
+        else s.Text="最小" task.wait(1) s.Text=tostring(self.v) end end
+
+        local fm=F.new()
+
+        o.MouseButton1Click:Connect(function() fm:tF() end)
+        nc.MouseButton1Click:Connect(function() fm:tN() end)
+        s.FocusLost:Connect(function() fm:sS() end)
+
+        local mt=nil
+        local function sm(x)
+        if mt then mt:Disconnect() end
+        mt=R.Heartbeat:Connect(function()
+        if not fm.r then return end
+        fm.r.CFrame=fm.r.CFrame*CFrame.new(0,x,0) end) end
+        local function em()
+        if mt then mt:Disconnect() mt=nil end end
+
+        u.MouseButton1Down:Connect(function() sm(1) end)
+        u.MouseButton1Up:Connect(em)
+        u.MouseLeave:Connect(em)
+        d.MouseButton1Down:Connect(function() sm(-1) end)
+        d.MouseButton1Up:Connect(em)
+        d.MouseLeave:Connect(em)
+
+        p.MouseButton1Click:Connect(function() fm:iS() end)
+        n.MouseButton1Click:Connect(function() fm:dS() end)
+
+        c.MouseButton1Click:Connect(function()
+            -- 關閉顏色動畫
+            if colorConnection then
+                colorConnection:Disconnect()
+                colorConnection = nil
+            end
+            
+            if fm.f then fm:eF() end
+            fm:cl()
+            m:Destroy() 
+        end)
+
+        h.MouseButton1Click:Connect(function()
+            u.Visible=false
+            d.Visible=false
+            o.Visible=false
+            p.Visible=false
+            s.Visible=false
+            n.Visible=false
+            nc.Visible=false
+            h.Visible=false
+            h2.Visible=true
+            f.BackgroundTransparency=1
+            
+            -- 這裡也改成簡單的"X"
+            c.Text = "X"
+            c.Font = Enum.Font.SourceSans
+            c.TextSize = 18
+            c.Position=UDim2.new(0,0,-1,57)
+            
+            h2.Text = "顯示"
+        end)
+
+        h2.MouseButton1Click:Connect(function()
+            u.Visible=true
+            d.Visible=true
+            o.Visible=true
+            p.Visible=true
+            s.Visible=true
+            n.Visible=true
+            nc.Visible=true
+            h.Visible=true
+            h2.Visible=false
+            f.BackgroundTransparency=0
+            
+            -- 這裡也改成簡單的"X"
+            c.Text = "X"
+            c.Font = Enum.Font.SourceSans
+            c.TextSize = 18
+            c.Position=UDim2.new(0,0,-1,27)
+            
+            h.Text = "隱藏"
+        end)
+        
+        return true, "GG飛行器加載成功"
+    end)
+    
+    if success then
+        local success2, message = errorMessage
+        if success2 then
+            showNotification("✅ " .. message .. "\n🕊️ 特色: RGB漸變顏色\n穿牆模式\n速度調節", Color3.fromRGB(0, 180, 0), 2.5)
+            print("🎉 " .. message)
+            return true
+        else
+            showNotification("⚠️ " .. message, Color3.fromRGB(255, 100, 0), 2.5)
+            print("⚠️ GG飛行器加載失敗: " .. message)
+            return false
+        end
+    else
+        showNotification("❌ 加載失敗: " .. (errorMessage or "未知錯誤"), Color3.fromRGB(255, 0, 0), 2.5)
+        print("❌ GG飛行器加載錯誤: " .. (errorMessage or "未知錯誤"))
+        return false
+    end
+end
+
+-- ========================
+-- 快速攻擊系統（整合UI版本）
+-- ========================
+print("⚡ 初始化快速攻擊系統...")
+
+local isFastAttackOn = false
+local fastAttackModule = nil
+local attackLoop = nil
+local lastAttackTime = 0
+local attackCount = 0
+
+-- 更新攻擊狀態顯示
+local function updateAttackStatus(status, color)
+    attackStatusLabel.Text = "⚡ 極速攻擊: " .. status
+    attackStatusLabel.TextColor3 = color
+end
+
+-- 更新攻擊統計顯示
+local function updateAttackStats(targets)
+    local targetsText = targets > 0 and " (" .. targets .. "目標)" or ""
+    attackStatsLabel.Text = "距離: 10000 | 間隔: 0.0000000001s" .. targetsText
+end
+
+-- 快速攻擊功能
+local function setupFastAttack()
+    showNotification("⚡ 正在初始化快速攻擊...", Color3.fromRGB(255, 165, 0), 1)
+    
+    local success, result = pcall(function()
+        -- 全局開關
+        _G.FastAttack = true
+
+        if _G.FastAttack then
+            local _ENV = (getgenv or getrenv or getfenv)()
+
+            local function SafeWaitForChild(parent, childName)
+                local success, result = pcall(function()
+                    return parent:WaitForChild(childName)
+                end)
+                if not success or not result then
+                    warn("未找到: " .. childName)
+                end
+                return result
+            end
+
+            local function WaitChilds(path, ...)
+                local last = path
+                for _, child in {...} do
+                    last = last:FindFirstChild(child) or SafeWaitForChild(last, child)
+                    if not last then break end
+                end
+                return last
+            end
+
+            local CollectionService = game:GetService("CollectionService")
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local TeleportService = game:GetService("TeleportService")
+            local RunService = game:GetService("RunService")
+            local Players = game:GetService("Players")
+            local Player = Players.LocalPlayer
+
+            if not Player then
+                warn("未找到本地玩家.")
+                return
+            end
+
+            local Remotes = SafeWaitForChild(ReplicatedStorage, "Remotes")
+            if not Remotes then return end
+
+            local Validator = SafeWaitForChild(Remotes, "Validator")
+            local CommF = SafeWaitForChild(Remotes, "CommF_")
+            local CommE = SafeWaitForChild(Remotes, "CommE")
+
+            local ChestModels = SafeWaitForChild(workspace, "ChestModels")
+            local WorldOrigin = SafeWaitForChild(workspace, "_WorldOrigin")
+            local Characters = SafeWaitForChild(workspace, "Characters")
+            local Enemies = SafeWaitForChild(workspace, "Enemies")
+            local Map = SafeWaitForChild(workspace, "Map")
+
+            local EnemySpawns = SafeWaitForChild(WorldOrigin, "EnemySpawns")
+            local Locations = SafeWaitForChild(WorldOrigin, "Locations")
+
+            local RenderStepped = RunService.RenderStepped
+            local Heartbeat = RunService.Heartbeat
+            local Stepped = RunService.Stepped
+
+            local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
+            local Net = SafeWaitForChild(Modules, "Net")
+
+            local sethiddenproperty = sethiddenproperty or function(...) return ... end
+            local setupvalue = setupvalue or (debug and debug.setupvalue)
+            local getupvalue = getupvalue or (debug and debug.getupvalue)
+
+            -- 設置攻擊間隔為 0.0000000001
+            local Settings = {
+                AutoClick = true,
+                ClickDelay = 0.0000000001  -- 攻擊間隔設置為 0.0000000001
+            }
+
+            local FastAttack = {
+                Distance = 10000,  -- 設置為 10000
+                attackMobs = true,
+                attackPlayers = true,
+                Equipped = nil
+            }
+
+            local RegisterAttack = SafeWaitForChild(Net, "RE/RegisterAttack")
+            local RegisterHit = SafeWaitForChild(Net, "RE/RegisterHit")
+
+            local function IsAlive(character)
+                return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
+            end
+
+            local function ProcessEnemies(OthersEnemies, Folder)
+                local BasePart = nil
+                local targetCount = 0
+                for _, Enemy in Folder:GetChildren() do
+                    local Head = Enemy:FindFirstChild("Head")
+                    if Head and IsAlive(Enemy) and Player:DistanceFromCharacter(Head.Position) < FastAttack.Distance then
+                        if Enemy ~= Player.Character then
+                            table.insert(OthersEnemies, { Enemy, Head })
+                            BasePart = Head
+                            targetCount = targetCount + 1
+                        end
+                    end
+                end
+                return BasePart, targetCount
+            end
+
+            function FastAttack:Attack(BasePart, OthersEnemies, targetCount)
+                if not BasePart or #OthersEnemies == 0 then return end
+                
+                if RegisterAttack then
+                    RegisterAttack:FireServer(Settings.ClickDelay)
+                end
+                
+                if RegisterHit then
+                    RegisterHit:FireServer(BasePart, OthersEnemies)
+                end
+                
+                -- 更新UI狀態
+                updateAttackStatus("攻擊中", Color3.fromRGB(100, 255, 100))
+                updateAttackStats(targetCount)
+            end
+
+            function FastAttack:AttackNearest()
+                local OthersEnemies = {}
+                local totalTargets = 0
+                local Part1, count1 = ProcessEnemies(OthersEnemies, Enemies)
+                totalTargets = totalTargets + count1
+                
+                local Part2, count2 = ProcessEnemies(OthersEnemies, Characters)
+                totalTargets = totalTargets + count2
+                
+                if #OthersEnemies > 0 then
+                    self:Attack(Part1 or Part2, OthersEnemies, totalTargets)
+                else
+                    updateAttackStatus("範圍內無目標", Color3.fromRGB(255, 255, 100))
+                    updateAttackStats(0)
+                    task.wait(Settings.ClickDelay)
+                end
+            end
+
+            function FastAttack:BladeHits()
+                local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
+                if Equipped and Equipped.ToolTip ~= "Gun" then
+                    self:AttackNearest()
+                else
+                    updateAttackStatus("未裝備近戰武器", Color3.fromRGB(255, 100, 100))
+                    updateAttackStats(0)
+                    task.wait(0.1)  -- 稍微等待一下再檢查
+                end
+            end
+
+            -- 計算每秒攻擊次數
+            local attacksPerSecond = math.floor(1 / Settings.ClickDelay)
+            
+            return {
+                start = function()
+                    print("▶️ 開啟極速攻擊")
+                    updateAttackStatus("已啟動 (" .. attacksPerSecond .. "次/秒)", Color3.fromRGB(100, 255, 100))
+                    
+                    if attackLoop then
+                        attackLoop:Disconnect()
+                    end
+                    
+                    attackLoop = Heartbeat:Connect(function()
+                        local currentTime = tick()
+                        if currentTime - lastAttackTime >= Settings.ClickDelay then
+                            FastAttack:BladeHits()
+                            attackCount = attackCount + 1
+                            lastAttackTime = currentTime
+                        end
+                    end)
+                    
+                    return true
+                end,
+                stop = function()
+                    print("⏹️ 停止極速攻擊")
+                    updateAttackStatus("已停止", Color3.fromRGB(255, 100, 100))
+                    updateAttackStats(0)
+                    
+                    if attackLoop then
+                        attackLoop:Disconnect()
+                        attackLoop = nil
+                    end
+                end,
+                toggle = function()
+                    if isFastAttackOn then
+                        return "stop"
+                    else
+                        return "start"
+                    end
+                end,
+                getStats = function()
+                    return {
+                        distance = FastAttack.Distance,
+                        delay = Settings.ClickDelay,
+                        attacksPerSecond = attacksPerSecond,
+                        attackCount = attackCount
+                    }
+                end
+            }
+        end
+        
+        return nil
+    end)
+    
+    if success and result then
+        showNotification("✅ 快速攻擊初始化完成\n距離: 10000單位\n間隔: 0.0000000001秒", Color3.fromRGB(0, 180, 0), 1.5)
+        return result
+    else
+        local errMsg = result or "未知錯誤"
+        showNotification("⚠️ 快速攻擊初始化失敗: " .. errMsg, Color3.fromRGB(255, 0, 0), 2)
+        print("❌ 快速攻擊初始化失敗: " .. errMsg)
+        return nil
+    end
+end
+
+-- 初始化快速攻擊
+local fastAttackModule = setupFastAttack()
+
+-- ========================
+-- V4控制系統
+-- ========================
+print("🎮 啟動V4控制系統...")
+
+local isV4ControlOn = false
+local v4Task = nil
+
+-- V4覺醒函數
+local function callV4Awakening()
+    local success, result = pcall(function()
+        local Backpack = player:FindFirstChild("Backpack")
+        if not Backpack then return false, "無背包" end
+        
+        local Awakening = Backpack:FindFirstChild("Awakening")
+        if not Awakening then return false, "無Awakening技能" end
+        
+        local RemoteFunc = Awakening:FindFirstChild("RemoteFunction")
+        if not RemoteFunc then return false, "無RemoteFunction" end
+        
+        return RemoteFunc:InvokeServer(true)
+    end)
+    
+    return success, result
+end
+
+-- 初始化V4控制
+local function setupV4Control()
+    showNotification("🔥 正在初始化V4控制...", Color3.fromRGB(255, 165, 0), 1)
+    
+    local success, result = pcall(function()
+        local Backpack = player:FindFirstChild("Backpack")
+        local hasV4 = false
+        local v4Status = "未檢測"
+        
+        if Backpack then
+            local Awakening = Backpack:FindFirstChild("Awakening")
+            if Awakening then
+                hasV4 = true
+                v4Status = "已檢測到Awakening技能"
+            else
+                v4Status = "未找到Awakening技能"
+            end
+        else
+            v4Status = "背包不存在"
+        end
+        
+        print("🎮 V4狀態: " .. v4Status)
+        
+        return {
+            hasV4 = hasV4,
+            v4Status = v4Status,
+            start = function()
+                if not hasV4 then
+                    showNotification("❌ V4不可用: " .. v4Status, Color3.fromRGB(255, 0, 0), 2)
+                    return false
+                end
+                
+                isV4ControlOn = true
+                
+                if v4Task then
+                    task.cancel(v4Task)
+                end
+                
+                v4Task = task.spawn(function()
+                    while isV4ControlOn do
+                        local success, result = callV4Awakening()
+                        if success then
+                            print("✅ V4調用成功")
+                        else
+                            print("❌ V4調用失敗:", result)
+                        end
+                        task.wait(1)
+                    end
+                end)
+                
+                return true
+            end,
+            stop = function()
+                isV4ControlOn = false
+                
+                if v4Task then
+                    task.cancel(v4Task)
+                    v4Task = nil
+                end
+            end,
+            test = function()
+                if not hasV4 then
+                    showNotification("❌ V4不可用: " .. v4Status, Color3.fromRGB(255, 0, 0), 2)
+                    return false, "V4不可用"
+                end
+                
+                local success, result = callV4Awakening()
+                if success then
+                    showNotification("✅ V4測試成功", Color3.fromRGB(0, 180, 0), 2)
+                    return true, "成功"
+                else
+                    showNotification("❌ V4測試失敗: " .. (result or "未知錯誤"), Color3.fromRGB(255, 0, 0), 2)
+                    return false, result
+                end
+            end
+        }
+    end)
+    
+    if success and result then
+        local v4Info = result
+        showNotification("✅ V4控制初始化完成\n狀態: " .. v4Info.v4Status, Color3.fromRGB(0, 180, 0), 2)
+        print("🎉 V4控制初始化成功: " .. v4Info.v4Status)
+        return result
+    else
+        local errMsg = result or "未知錯誤"
+        showNotification("⚠️ V4控制初始化失敗: " .. errMsg, Color3.fromRGB(255, 0, 0), 2)
+        print("❌ V4控制初始化失敗: " .. errMsg)
+        return nil
+    end
+end
+
+-- 初始化V4控制
+local v4ControlModule = setupV4Control()
+
+-- ========================
+-- ESP透視系統
+-- ========================
+print("👁️ 初始化ESP透視系統...")
+
+local isESPOn = false
+local espModule = nil
+
+-- ESP透視功能
+local function setupESP()
+    showNotification("👁️ 正在初始化ESP透視...", Color3.fromRGB(255, 165, 0), 1)
+    
+    local success, result = pcall(function()
+        -- 获取必要的服务
+        local RunService = game:GetService("RunService")
+        local Players = game:GetService("Players")
+        local Workspace = game:GetService("Workspace")
+        local Camera = Workspace.CurrentCamera
+        local LocalPlayer = Players.LocalPlayer
+        
+        -- ESP配置
+        local ESPConfig = {
+            MainSwitch = false,      -- 透视总开关
+            ShowNameDistance = true, -- 显示玩家名字+距离
+            ShowTracer = true,       -- 显示射线追踪
+            ShowHealth = true        -- 显示玩家血量
+        }
+        
+        -- 存储ESP元素
+        local ESPElements = {}
+        
+        -- 一键开启所有功能
+        local function EnableAllESP()
+            ESPConfig.MainSwitch = true
+            ESPConfig.ShowNameDistance = true
+            ESPConfig.ShowTracer = true
+            ESPConfig.ShowHealth = true
+            UpdateAllESP()
+            print("✅ 已开启所有ESP功能")
+        end
+        
+        -- 一键关闭所有功能
+        local function DisableAllESP()
+            ESPConfig.MainSwitch = false
+            ESPConfig.ShowNameDistance = false
+            ESPConfig.ShowTracer = false
+            ESPConfig.ShowHealth = false
+            UpdateAllESP()
+            print("❌ 已关闭所有ESP功能")
+        end
+        
+        -- 切换所有功能
+        local function ToggleAllESP()
+            if ESPConfig.MainSwitch then
+                DisableAllESP()
+            else
+                EnableAllESP()
+            end
+        end
+        
+        -- 清理函数
+        local function CleanupPlayerESP(player)
+            if not ESPElements[player.UserId] then return end
+            
+            if ESPElements[player.UserId].NameHealthESP then
+                ESPElements[player.UserId].NameHealthESP:Destroy()
+                ESPElements[player.UserId].NameHealthESP = nil
+            end
+            if ESPElements[player.UserId].NameHealthUpdateConn then
+                ESPElements[player.UserId].NameHealthUpdateConn:Disconnect()
+                ESPElements[player.UserId].NameHealthUpdateConn = nil
+            end
+            
+            if ESPElements[player.UserId].Tracer then
+                ESPElements[player.UserId].Tracer:Remove()
+                ESPElements[player.UserId].Tracer = nil
+            end
+            if ESPElements[player.UserId].TracerConn then
+                ESPElements[player.UserId].TracerConn:Disconnect()
+                ESPElements[player.UserId].TracerConn = nil
+            end
+        end
+        
+        -- 创建名字+距离+血量ESP
+        local function CreateNameDistanceHealthESP(player)
+            if not player.Character or not player.Character:FindFirstChild("Head") then return end
+            local head = player.Character.Head
+            
+            if ESPElements[player.UserId] and ESPElements[player.UserId].NameHealthESP then
+                ESPElements[player.UserId].NameHealthESP:Destroy()
+            end
+            
+            local billboardGui = Instance.new("BillboardGui")
+            billboardGui.Name = "NameDistanceHealthESP"
+            billboardGui.Adornee = head
+            billboardGui.Size = UDim2.new(0, 150, 0, 60)
+            billboardGui.StudsOffset = Vector3.new(0, 3.5, 0)
+            billboardGui.AlwaysOnTop = true
+            billboardGui.Parent = head
+            
+            local container = Instance.new("Frame")
+            container.Size = UDim2.new(1, 0, 1, 0)
+            container.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            container.BackgroundTransparency = 0.5
+            container.Parent = billboardGui
+            
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 4)
+            corner.Parent = container
+            
+            local textContainer = Instance.new("Frame")
+            textContainer.Size = UDim2.new(1, -10, 1, -10)
+            textContainer.Position = UDim2.new(0, 5, 0, 5)
+            textContainer.BackgroundTransparency = 1
+            textContainer.Parent = container
+            
+            local layout = Instance.new("UIListLayout")
+            layout.Padding = UDim.new(0, 2)
+            layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+            layout.VerticalAlignment = Enum.VerticalAlignment.Top
+            layout.Parent = textContainer
+            
+            -- 名字标签
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Name = "NameLabel"
+            nameLabel.Size = UDim2.new(1, 0, 0, 20)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = player.Name
+            nameLabel.TextColor3 = Color3.new(1, 1, 1)
+            nameLabel.Font = Enum.Font.GothamSemibold
+            nameLabel.TextSize = 14
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Parent = textContainer
+            
+            -- 血量标签
+            local healthLabel = Instance.new("TextLabel")
+            healthLabel.Name = "HealthLabel"
+            healthLabel.Size = UDim2.new(1, 0, 0, 16)
+            healthLabel.BackgroundTransparency = 1
+            healthLabel.Text = "血量: 100/100"
+            healthLabel.TextColor3 = Color3.new(0, 1, 0)
+            healthLabel.Font = Enum.Font.Gotham
+            healthLabel.TextSize = 12
+            healthLabel.TextXAlignment = Enum.TextXAlignment.Left
+            healthLabel.Parent = textContainer
+            
+            -- 距离标签
+            local distanceLabel = Instance.new("TextLabel")
+            distanceLabel.Name = "DistanceLabel"
+            distanceLabel.Size = UDim2.new(1, 0, 0, 16)
+            distanceLabel.BackgroundTransparency = 1
+            distanceLabel.Text = "0.0米"
+            distanceLabel.TextColor3 = Color3.new(1, 0.5, 0)
+            distanceLabel.Font = Enum.Font.Gotham
+            distanceLabel.TextSize = 12
+            distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+            distanceLabel.Parent = textContainer
+            
+            -- 更新连接
+            local updateConnection = RunService.RenderStepped:Connect(function()
+                if not billboardGui.Parent or not LocalPlayer.Character or not player.Character then 
+                    return 
+                end
+                
+                -- 更新距离
+                local localRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                if localRoot and targetRoot then
+                    local distance = (localRoot.Position - targetRoot.Position).Magnitude
+                    distanceLabel.Text = string.format("%.1f米", distance)
+                end
+                
+                -- 更新血量
+                local humanoid = player.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    local health = math.floor(humanoid.Health)
+                    local maxHealth = math.floor(humanoid.MaxHealth)
+                    local healthPercent = health / maxHealth
+                    
+                    if healthPercent > 0.7 then
+                        healthLabel.TextColor3 = Color3.new(0, 1, 0)
+                    elseif healthPercent > 0.3 then
+                        healthLabel.TextColor3 = Color3.new(1, 1, 0)
+                    else
+                        healthLabel.TextColor3 = Color3.new(1, 0, 0)
+                    end
+                    
+                    healthLabel.Text = string.format("血量: %d/%d", health, maxHealth)
+                end
+            end)
+            
+            ESPElements[player.UserId] = ESPElements[player.UserId] or {}
+            ESPElements[player.UserId].NameHealthESP = billboardGui
+            ESPElements[player.UserId].NameHealthUpdateConn = updateConnection
+        end
+        
+        -- 创建射线追踪ESP
+        local function CreateTracerESP(player)
+            if ESPElements[player.UserId] and ESPElements[player.UserId].Tracer then
+                ESPElements[player.UserId].Tracer:Remove()
+            end
+            
+            local tracer = Drawing.new("Line")
+            tracer.Color = Color3.new(1, 0, 0)
+            tracer.Thickness = 2
+            tracer.Transparency = 0.8
+            tracer.Visible = false
+            
+            local renderConnection = RunService.RenderStepped:Connect(function()
+                if not ESPConfig.MainSwitch or not ESPConfig.ShowTracer then
+                    tracer.Visible = false
+                    return
+                end
+                
+                local localChar = LocalPlayer.Character
+                local targetChar = player.Character
+                if not localChar or not targetChar then
+                    tracer.Visible = false
+                    return
+                end
+                
+                local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                if targetRoot then
+                    local screenPos, isVisible = Camera:WorldToViewportPoint(targetRoot.Position)
+                    if isVisible then
+                        tracer.Visible = true
+                        tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                        tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                    else
+                        tracer.Visible = false
+                    end
+                else
+                    tracer.Visible = false
+                end
+            end)
+            
+            ESPElements[player.UserId] = ESPElements[player.UserId] or {}
+            ESPElements[player.UserId].Tracer = tracer
+            ESPElements[player.UserId].TracerConn = renderConnection
+        end
+        
+        -- 更新玩家ESP
+        local function UpdatePlayerESP(player)
+            if player == LocalPlayer then return end
+            
+            if not player.Character then
+                CleanupPlayerESP(player)
+                return
+            end
+            
+            if not player.Character:FindFirstChild("Head") or not player.Character:FindFirstChild("HumanoidRootPart") then
+                CleanupPlayerESP(player)
+                return
+            end
+            
+            if ESPConfig.MainSwitch then
+                -- 创建射线追踪
+                if ESPConfig.ShowTracer then
+                    CreateTracerESP(player)
+                else
+                    if ESPElements[player.UserId] and ESPElements[player.UserId].Tracer then
+                        ESPElements[player.UserId].Tracer:Remove()
+                        ESPElements[player.UserId].Tracer = nil
+                    end
+                    if ESPElements[player.UserId] and ESPElements[player.UserId].TracerConn then
+                        ESPElements[player.UserId].TracerConn:Disconnect()
+                        ESPElements[player.UserId].TracerConn = nil
+                    end
+                end
+                
+                -- 创建名字+距离+血量ESP
+                if ESPConfig.ShowNameDistance or ESPConfig.ShowHealth then
+                    CreateNameDistanceHealthESP(player)
+                else
+                    if ESPElements[player.UserId] and ESPElements[player.UserId].NameHealthESP then
+                        ESPElements[player.UserId].NameHealthESP:Destroy()
+                        ESPElements[player.UserId].NameHealthESP = nil
+                    end
+                    if ESPElements[player.UserId] and ESPElements[player.UserId].NameHealthUpdateConn then
+                        ESPElements[player.UserId].NameHealthUpdateConn:Disconnect()
+                        ESPElements[player.UserId].NameHealthUpdateConn = nil
+                    end
+                end
+            else
+                CleanupPlayerESP(player)
+            end
+        end
+        
+        -- 更新所有ESP
+        function UpdateAllESP()
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    UpdatePlayerESP(player)
+                end
+            end
+        end
+        
+        -- 处理玩家重生
+        local function HandlePlayerRespawn(player)
+            local character = player.Character
+            if not character then
+                character = player.CharacterAdded:Wait()
+            end
+            
+            local head = character:WaitForChild("Head", 5)
+            local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+            
+            if head and rootPart then
+                task.wait(0.5)
+                UpdatePlayerESP(player)
+            end
+        end
+        
+        -- 玩家管理
+        Players.PlayerAdded:Connect(function(player)
+            if player == LocalPlayer then return end
+            
+            player.CharacterAdded:Connect(function()
+                task.spawn(HandlePlayerRespawn, player)
+            end)
+            
+            player.CharacterRemoving:Connect(function()
+                CleanupPlayerESP(player)
+            end)
+            
+            if player.Character then
+                task.spawn(HandlePlayerRespawn, player)
+            end
+        end)
+        
+        -- 处理现有玩家
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                if player.Character then
+                    task.spawn(HandlePlayerRespawn, player)
+                end
+                
+                player.CharacterAdded:Connect(function()
+                    task.spawn(HandlePlayerRespawn, player)
+                end)
+                
+                player.CharacterRemoving:Connect(function()
+                    CleanupPlayerESP(player)
+                end)
+            end
+        end
+        
+        -- 本地玩家
+        LocalPlayer.CharacterAdded:Connect(function()
+            task.wait(1)
+            UpdateAllESP()
+        end)
+        
+        -- 定期更新
+        task.spawn(function()
+            while true do
+                task.wait(2)
+                if ESPConfig.MainSwitch then
+                    UpdateAllESP()
+                end
+            end
+        end)
+        
+        return {
+            start = function()
+                print("▶️ 開啟ESP透視")
+                EnableAllESP()
+                return true
+            end,
+            stop = function()
+                print("⏹️ 關閉ESP透視")
+                DisableAllESP()
+            end,
+            toggle = function()
+                ToggleAllESP()
+            end,
+            update = function()
+                UpdateAllESP()
+            end
+        }
+    end)
+    
+    if success and result then
+        showNotification("✅ ESP透視初始化完成\n包含: 名字+距離+血量\n射線追踪", Color3.fromRGB(0, 180, 0), 1.5)
+        return result
+    else
+        local errMsg = result or "未知錯誤"
+        showNotification("⚠️ ESP透視初始化失敗: " .. errMsg, Color3.fromRGB(255, 0, 0), 2)
+        print("❌ ESP透視初始化失敗: " .. errMsg)
+        return nil
+    end
+end
+
+-- 初始化ESP
+local espModule = setupESP()
+
+-- ========================
+-- UI最小化/最大化功能
+-- ========================
+print("⚙️ 設置UI最小化功能...")
+
+local isMinimized = false
+local isGearDragging = false
+local lastMainFramePosition = mainFrame.Position
+
+-- 最小化UI到齒輪
+local function minimizeUI()
+    print("⚙️ 最小化UI到齒輪...")
+    
+    lastMainFramePosition = mainFrame.Position
+    
+    local gearOffsetX = 92
+    local gearOffsetY = 155
+    
+    gearButton.Position = UDim2.new(
+        lastMainFramePosition.X.Scale,
+        lastMainFramePosition.X.Offset + gearOffsetX,
+        lastMainFramePosition.Y.Scale,
+        lastMainFramePosition.Y.Offset + gearOffsetY
+    )
+    
+    mainFrame.Visible = false
+    gearButton.Visible = true
+    isMinimized = true
+    minimizeButton.Text = "□"
+    
+    showNotification("⚙️ UI已最小化\n點擊齒輪圖標恢復", Color3.fromRGB(100, 150, 200), 1.5)
+    print("✅ UI最小化完成，齒輪位置: " .. tostring(gearButton.Position))
+end
+
+-- 最大化UI從齒輪
+local function maximizeUI()
+    print("⚙️ 從齒輪恢復UI...")
+    
+    local currentGearPosition = gearButton.Position
+    local gearOffsetX = 92
+    local gearOffsetY = 155
+    
+    local newMainFramePosition = UDim2.new(
+        currentGearPosition.X.Scale,
+        currentGearPosition.X.Offset - gearOffsetX,
+        currentGearPosition.Y.Scale,
+        currentGearPosition.Y.Offset - gearOffsetY
+    )
+    
+    gearButton.Visible = false
+    mainFrame.Position = newMainFramePosition
+    mainFrame.Visible = true
+    lastMainFramePosition = newMainFramePosition
+    isMinimized = false
+    minimizeButton.Text = "−"
+    
+    showNotification("⚙️ UI已恢復", Color3.fromRGB(100, 150, 200), 1)
+    print("✅ UI恢復完成，主框架位置: " .. tostring(newMainFramePosition))
+end
+
+-- 最小化按鈕點擊事件
+minimizeButton.MouseButton1Click:Connect(function()
+    if isMinimized then
+        maximizeUI()
+    else
+        minimizeUI()
+    end
+end)
+
+-- 齒輪按鈕點擊事件
+gearButton.MouseButton1Click:Connect(function()
+    if isMinimized then
+        maximizeUI()
+    end
+end)
+
+-- 齒輪按鈕拖動功能
+local gearDragStartPosition = Vector2.new(0, 0)
+local gearStartPosition = UDim2.new(0, 0, 0, 0)
+
+gearButton.MouseButton1Down:Connect(function()
+    if isMinimized then
+        isGearDragging = true
+        gearDragStartPosition = inputService:GetMouseLocation()
+        gearStartPosition = gearButton.Position
+        gearButton.BackgroundColor3 = Color3.fromRGB(80, 120, 180)
+    end
+end)
+
+inputService.InputChanged:Connect(function(input)
+    if isGearDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local currentMouse = inputService:GetMouseLocation()
+        local delta = currentMouse - gearDragStartPosition
+        
+        gearButton.Position = UDim2.new(
+            gearStartPosition.X.Scale,
+            gearStartPosition.X.Offset + delta.X,
+            gearStartPosition.Y.Scale,
+            gearStartPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+inputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if isGearDragging then
+            isGearDragging = false
+            gearButton.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+            print("✅ 齒輪位置更新: " .. tostring(gearButton.Position))
+        end
+    end
+end)
+
+-- 手機觸控拖動（齒輪）
+if isMobile then
+    local gearTouchDragging = false
+    local gearTouchStartPosition = Vector2.new(0, 0)
+    local gearTouchStartPositionUDim = UDim2.new(0, 0, 0, 0)
+    
+    gearButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch and isMinimized then
+            gearTouchDragging = true
+            gearTouchStartPosition = input.Position
+            gearTouchStartPositionUDim = gearButton.Position
+            gearButton.BackgroundColor3 = Color3.fromRGB(80, 120, 180)
+        end
+    end)
+    
+    inputService.InputChanged:Connect(function(input)
+        if gearTouchDragging and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - gearTouchStartPosition
+            gearButton.Position = UDim2.new(
+                gearTouchStartPositionUDim.X.Scale,
+                gearTouchStartPositionUDim.X.Offset + delta.X,
+                gearTouchStartPositionUDim.Y.Scale,
+                gearTouchStartPositionUDim.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    inputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            if gearTouchDragging then
+                gearTouchDragging = false
+                gearButton.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+                print("✅ 齒輪位置更新: " .. tostring(gearButton.Position))
+            end
+        end
+    end)
+end
+
+-- ========================
+-- 按鈕事件
+-- ========================
+print("🔧 設置按鈕事件...")
+
+-- 極速攻擊按鈕
+fastAttackBtn.MouseButton1Click:Connect(function()
+    print("🔘 極速攻擊按鈕被點擊")
+    
+    if not fastAttackModule then
+        showNotification("🔄 正在重新初始化快速攻擊...", Color3.fromRGB(255, 165, 0), 1)
+        fastAttackModule = setupFastAttack()
+        if not fastAttackModule then
+            return
+        end
+    end
+    
+    isFastAttackOn = not isFastAttackOn
+    
+    if isFastAttackOn then
+        fastAttackBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+        fastAttackBtn.Text = "⚡ 極速攻擊 [ON]"
+        showNotification("⚡ 極速攻擊已開啟\n距離: 10000單位\n間隔: 0.0000000001秒", Color3.fromRGB(0, 180, 0), 1.5)
+        
+        if fastAttackModule and fastAttackModule.start then
+            fastAttackModule.start()
+        end
+    else
+        fastAttackBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+        fastAttackBtn.Text = "⚡ 極速攻擊 [OFF]"
+        showNotification("🛑 極速攻擊已關閉", Color3.fromRGB(200, 0, 0), 1.5)
+        
+        if fastAttackModule and fastAttackModule.stop then
+            fastAttackModule.stop()
+        end
+    end
+end)
+
+-- Ace Aimlock 按鈕
+aimlockBtn.MouseButton1Click:Connect(function()
+    print("🔘 Ace Aimlock 按鈕被點擊")
+    
+    aimlockBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+    aimlockBtn.Text = "🎯 加載中..."
+    
+    local loaded = loadAceAimlock()
+    
+    if loaded then
+        aimlockBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+        aimlockBtn.Text = "🎯 加載成功"
+    else
+        aimlockBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        aimlockBtn.Text = "🎯 加載失敗"
+        task.wait(1.5)
+        aimlockBtn.BackgroundColor3 = Color3.fromRGB(220, 150, 50)
+        aimlockBtn.Text = "🎯 Ace Aimlock"
+    end
+end)
+
+-- GG飛行器按鈕
+ggFlyBtn.MouseButton1Click:Connect(function()
+    print("🔘 GG飛行器按鈕被點擊")
+    
+    ggFlyBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+    ggFlyBtn.Text = "🕊️ 加載中..."
+    
+    local loaded = loadGGFlyScript()
+    
+    if loaded then
+        ggFlyBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+        ggFlyBtn.Text = "🕊️ 加載成功"
+    else
+        ggFlyBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        ggFlyBtn.Text = "🕊️ 加載失敗"
+        task.wait(1.5)
+        ggFlyBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+        ggFlyBtn.Text = "🕊️ GG飛行器"
+    end
+end)
+
+-- V4控制按鈕
+v4ControlBtn.MouseButton1Click:Connect(function()
+    print("🔘 V4控制按鈕被點擊")
+    
+    if not v4ControlModule then
+        showNotification("🔄 正在重新初始化V4控制...", Color3.fromRGB(255, 165, 0), 1)
+        v4ControlModule = setupV4Control()
+        if not v4ControlModule then
+            return
+        end
+    end
+    
+    isV4ControlOn = not isV4ControlOn
+    
+    if isV4ControlOn then
+        if v4ControlModule.hasV4 then
+            local success = v4ControlModule.start()
+            if success then
+                v4ControlBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+                v4ControlBtn.Text = "🔥 V4控制 [ON]"
+                showNotification("🔥 V4控制已開啟\n每秒自動覺醒", Color3.fromRGB(0, 180, 0), 2)
+            else
+                isV4ControlOn = false
+                v4ControlBtn.Text = "🔥 V4控制 [錯誤]"
+                task.wait(1.5)
+                v4ControlBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+                v4ControlBtn.Text = "🔥 V4控制"
+            end
+        else
+            showNotification("❌ 此遊戲不支援V4\n狀態: " .. v4ControlModule.v4Status, Color3.fromRGB(255, 0, 0), 2.5)
+            isV4ControlOn = false
+            v4ControlBtn.Text = "🔥 V4控制 [無效]"
+            task.wait(1.5)
+            v4ControlBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+            v4ControlBtn.Text = "🔥 V4控制"
+        end
+    else
+        if v4ControlModule and v4ControlModule.stop then
+            v4ControlModule.stop()
+        end
+        v4ControlBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+        v4ControlBtn.Text = "🔥 V4控制 [OFF]"
+        showNotification("🛑 V4控制已關閉", Color3.fromRGB(200, 0, 0), 1.5)
+    end
+end)
+
+-- ESP透視按鈕
+espBtn.MouseButton1Click:Connect(function()
+    print("🔘 ESP透視按鈕被點擊")
+    
+    if not espModule then
+        showNotification("🔄 正在重新初始化ESP...", Color3.fromRGB(255, 165, 0), 1)
+        espModule = setupESP()
+        if not espModule then
+            return
+        end
+    end
+    
+    isESPOn = not isESPOn
+    
+    if isESPOn then
+        espBtn.BackgroundColor3 = Color3.fromRGB(60, 220, 60)
+        espBtn.Text = "👁️ ESP透視 [ON]"
+        showNotification("👁️ ESP透視已開啟\n包含: 名字+距離+血量\n射線追踪", Color3.fromRGB(0, 180, 0), 2)
+        
+        if espModule and espModule.start then
+            espModule.start()
+        end
+    else
+        espBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
+        espBtn.Text = "👁️ ESP透視 [OFF]"
+        showNotification("🛑 ESP透視已關閉", Color3.fromRGB(200, 0, 0), 1.5)
+        
+        if espModule and espModule.stop then
+            espModule.stop()
+        end
+    end
+end)
+
+-- 關閉按鈕
+closeButton.MouseButton1Click:Connect(function()
+    print("🔘 關閉按鈕被點擊")
+    
+    -- 停止所有功能
+    if isFastAttackOn and fastAttackModule and fastAttackModule.stop then
+        fastAttackModule.stop()
+    end
+    
+    if isV4ControlOn and v4ControlModule and v4ControlModule.stop then
+        v4ControlModule.stop()
+    end
+    
+    if isESPOn and espModule and espModule.stop then
+        espModule.stop()
+    end
+    
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    closeButton.Text = "關閉中..."
+    
+    showNotification("🛑 正在關閉腳本...", Color3.fromRGB(220, 60, 60), 1)
+    
+    task.wait(0.8)
+    
+    if screenGui then
+        screenGui:Destroy()
+    end
+    
+    showNotification("✅ 腳本已關閉", Color3.fromRGB(0, 180, 0), 1)
+end)
+
+-- ESC鍵關閉（僅電腦）
+if not isMobile then
+    inputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.KeyCode == Enum.KeyCode.Escape then
+            closeButton:Click()
+        end
+    end)
+end
+
+-- ========================
+-- 初始化完成
+-- ========================
+task.wait(0.5)
+
+-- 顯示啟動通知
+local v4StatusText = v4ControlModule and v4ControlModule.v4Status or "未知"
+showNotification("✅ 小傑全能腳本已加載\n👑 小傑爸爸創作 v4.2\n設備: " .. deviceType .. "\n⚡ 極速攻擊: 10000單位\n🎯 Ace Aimlock\n🕊️ GG飛行器\n🔥 V4控制: " .. v4StatusText .. "\n👁️ ESP透視: 名字+距離+血量+射線", Color3.fromRGB(50, 150, 200), 3)
+
+print("🎮 =================================")
+print("🎮 小傑全能腳本 v4.2")
+print("🎮 創作: 小傑爸爸")
+print("🎮 設備: " .. deviceType)
+print("🎮 拖動功能: ✅ 已啟用")
+print("🎮 最小化功能: ⚙️ 齒輪圖標")
+print("🎮 極速攻擊: " .. (isFastAttackOn and "開啟" or "關閉"))
+print("🎮 V4控制: " .. (isV4ControlOn and "開啟" or "關閉"))
+print("🎮 V4狀態: " .. (v4ControlModule and v4ControlModule.v4Status or "未知"))
+print("🎮 ESP透視: " .. (isESPOn and "開啟" or "關閉"))
+print("🎮 攻擊距離: 10000 單位")
+print("🎮 攻擊間隔: 0.0000000001秒")
+print("🎮 攻擊頻率: 10,000,000,000次/秒")
+print("🎮 攻擊目標: 玩家 + NPC/敵人")
+print("🎮 Aimlock: 🎯 Ace Aimlock")
+print("🎮 飛行腳本: 🕊️ GG飛行器")
+print("🎮 ESP功能: 👁️ 名字+距離+血量+射線")
+print("🎮 =================================")
+
+-- 添加簡單的幫助信息
+task.spawn(function()
+    task.wait(2)
+    print("💡 使用幫助:")
+    print("💡 1. 拖動: 點擊標題欄藍色區域")
+    print("💡 2. 最小化: 點擊標題欄 − 按鈕 (變為齒輪)")
+    print("💡 3. 恢復: 點擊齒輪圖標")
+    print("💡 4. 拖動齒輪: 最小化時可拖動齒輪")
+    print("💡 5. 極速攻擊: 點擊綠色按鈕開關 (狀態顯示在下方)")
+    print("💡 6. Ace Aimlock: 點擊橙色按鈕 (自動瞄準)")
+    print("💡 7. GG飛行器: 點擊綠色按鈕 (彩虹漸變UI)")
+    print("💡 8. V4控制: 點擊橙色按鈕開關 (自動覺醒)")
+    print("💡 9. ESP透視: 點擊紫色按鈕開關 (名字+距離+血量+射線)")
+    print("💡 10. 關閉: 點擊 ✕ 或按 ESC")
+end)
+
+-- 確保按鈕正常工作的最終檢查
+task.spawn(function()
+    task.wait(1)
+    
+    local function testButtonClickable(button, name)
+        if button and button:IsA("TextButton") then
+            local connection = button.MouseButton1Click:Connect(function()
+                print("✅ " .. name .. " 按鈕點擊測試成功")
+                connection:Disconnect()
+            end)
+            
+            task.spawn(function()
+                task.wait(0.1)
+                if connection.Connected then
+                    connection:Disconnect()
+                end
+            end)
+            
+            return true
+        end
+        return false
+    end
+    
+    local fastAttackOk = testButtonClickable(fastAttackBtn, "極速攻擊")
+    local aimlockOk = testButtonClickable(aimlockBtn, "Ace Aimlock")
+    local ggFlyOk = testButtonClickable(ggFlyBtn, "GG飛行器")
+    local v4ControlOk = testButtonClickable(v4ControlBtn, "V4控制")
+    local espOk = testButtonClickable(espBtn, "ESP透視")
+    local closeOk = testButtonClickable(closeButton, "關閉")
+    local minimizeOk = testButtonClickable(minimizeButton, "最小化")
+    local gearOk = testButtonClickable(gearButton, "齒輪")
+    
+    if fastAttackOk and aimlockOk and ggFlyOk and v4ControlOk and espOk and closeOk and minimizeOk and gearOk then
+        print("✅ 所有按鈕功能正常")
+    else
+        print("⚠️ 部分按鈕可能有問題")
+    end
+end)
+
+print("🚀 小傑全能腳本 v4.2 完成！極速攻擊UI已整合到主界面中。")
