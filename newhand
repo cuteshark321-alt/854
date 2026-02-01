@@ -1,0 +1,959 @@
+-- NewHand脚本中心
+-- 版本: 3.0
+-- 作者: NewHand
+-- 更新日期: 2024-01-20
+
+-- ============================================
+-- 初始化部分
+-- ============================================
+if not getgenv then getgenv = function() return _G end end
+if not getrenv then getrenv = function() return _ENV end end
+
+-- 创建全局配置表
+getgenv().NewHandConfig = {
+    Version = "3.0",
+    Author = "NewHand",
+    ScriptName = "NewHand脚本",
+    DebugMode = false,
+    ToggleStates = {},
+    FastAttack = {
+        Enabled = true,
+        Distance = 10000,
+        AttackMobs = true,
+        AttackPlayers = true,
+        ClickDelay = 0.3
+    },
+    ESP = {
+        Enabled = false,
+        ShowNameDistance = false,
+        ShowHealth = false,
+        ShowTracer = false
+    },
+    Movement = {
+        SpeedEnabled = false,
+        SpeedValue = 50,
+        FlyEnabled = false
+    }
+}
+
+-- 调试函数
+local function DebugLog(message, level)
+    if getgenv().NewHandConfig.DebugMode then
+        local prefix = level == "error" and "[ERROR] " or level == "warn" and "[WARN] " or "[INFO] "
+        print("NewHand脚本 |" .. prefix .. message)
+    end
+end
+
+-- ============================================
+-- 防检测模块 - 完全重写
+-- ============================================
+local function SetupAntiDetection()
+    -- 防闲检测
+    local VirtualUser = game:GetService("VirtualUser")
+    game:GetService("Players").LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0, 0))
+        DebugLog("已拦截挂机检测，持续运行中...")
+    end)
+    
+    -- 屏蔽相机抖动
+    local success, cameraModule = pcall(function()
+        return require(game:GetService("ReplicatedStorage").Util.CameraShaker.Main)
+    end)
+    
+    if success and cameraModule then
+        local returnnil = function() return nil end
+        cameraModule.StartShake = returnnil
+        cameraModule.ShakeOnce = returnnil
+        cameraModule.ShakeSustain = returnnil
+        cameraModule.CameraShakeInstance = returnnil
+        cameraModule.Shake = returnnil
+        cameraModule.Start = returnnil
+        DebugLog("相机抖动已屏蔽")
+    end
+    
+    -- 全面拦截并修改所有通知
+    local oldHook
+    oldHook = hookmetamethod(game:GetService("StarterGui"), "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        if method == "SetCore" and args[1] == "SendNotification" then
+            local options = args[2]
+            if type(options) == "table" then
+                local modified = false
+                local newOptions = table.clone(options)
+                
+                -- 检查并替换所有可能的关键词
+                local title = tostring(newOptions.Title or "")
+                local text = tostring(newOptions.Text or "")
+                
+                -- 替换标题中的关键词
+                if title:find("零") or title:find("轩") then
+                    title = title:gsub("零脚本", "NewHand脚本")
+                    title = title:gsub("零中心", "NewHand中心")
+                    title = title:gsub("零域", "NewHand域")
+                    title = title:gsub("小轩", "NewHand")
+                    title = title:gsub("制作", "制作")
+                    newOptions.Title = title
+                    modified = true
+                end
+                
+                -- 替换文本中的关键词
+                if text:find("小轩") or text:find("制作") or text:find("零脚本") then
+                    text = text:gsub("小轩", "NewHand")
+                    text = text:gsub("制作", "制作")
+                    text = text:gsub("零脚本", "NewHand脚本")
+                    text = text:gsub("加载完成 祝您使用愉快", "加载完成，祝您使用愉快 - NewHand制作")
+                    text = text:gsub("脚本测试中", "脚本测试中 - NewHand制作")
+                    newOptions.Text = text
+                    modified = true
+                end
+                
+                if modified then
+                    DebugLog("已修改通知: " .. newOptions.Title .. " - " .. newOptions.Text)
+                    return oldHook(self, args[1], newOptions)
+                end
+            end
+        end
+        return oldHook(self, ...)
+    end))
+    
+    DebugLog("防检测系统已加载")
+end
+
+-- ============================================
+-- UI界面系统
+-- ============================================
+local function CreateUI()
+    local success, uiLib = pcall(function()
+        return loadstring(game:HttpGet("https://raw.githubusercontent.com/mknhghv/67/refs/heads/main/UI"))()
+    end)
+    
+    if not success then
+        warn("NewHand脚本 | UI库加载失败，正在使用备用方案...")
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "NewHand脚本",
+            Text = "UI加载失败，功能受限",
+            Duration = 5
+        })
+        return nil
+    end
+    
+    local win = uiLib:new("NewHand脚本中心")
+    
+    -- 标签页 - 全部使用新的图标和名称
+    local tabMain = win:Tab("主界面", '7734068321')
+    local tabCombat = win:Tab("战斗功能", '7733968321')
+    local tabVisual = win:Tab("视觉增强", '7733968321')
+    local tabTeleport = win:Tab("传送功能", '7733968321')
+    local tabMisc = win:Tab("其他功能", '7733968321')
+    
+    -- 主界面
+    local sectionAbout = tabMain:section("关于NewHand脚本", true)
+    sectionAbout:Label("══════════════════════")
+    sectionAbout:Label("NewHand脚本中心 v3.0")
+    sectionAbout:Label("作者: NewHand")
+    sectionAbout:Label("══════════════════════")
+    
+    local sectionStatus = tabMain:section("状态信息", true)
+    sectionStatus:Label("脚本状态: 正常运行中")
+    sectionStatus:Label("检测状态: 已绕过")
+    sectionStatus:Label("游戏ID: " .. game.PlaceId)
+    sectionStatus:Label("玩家: " .. game.Players.LocalPlayer.Name)
+    
+    local sectionNews = tabMain:section("NewHand公告", true)
+    sectionNews:Label("欢迎使用NewHand脚本")
+    sectionNews:Label("脚本测试中，功能持续更新")
+    sectionNews:Label("如有问题请反馈给NewHand")
+    sectionNews:Label("感谢使用NewHand制作")
+    
+    -- 战斗功能
+    local sectionCamera = tabCombat:section("视角设置", true)
+    sectionCamera:Slider("视角缩放距离", "Slider", 128, 128, 10000, false, function(Value)
+        game:GetService("Players").LocalPlayer.CameraMaxZoomDistance = Value
+        getgenv().NewHandConfig.CameraDistance = Value
+    end)
+    
+    local sectionAutoV4 = tabCombat:section("自动V4", true)
+    local autoV4Task = nil
+    local function callAwakeningRemote()
+        local LocalPlayer = game:GetService("Players").LocalPlayer
+        local Backpack = LocalPlayer:FindFirstChild("Backpack")
+        if not Backpack then return end
+        
+        local Awakening = Backpack:FindFirstChild("Awakening")
+        if not Awakening then return end
+        
+        local RemoteFunc = Awakening:FindFirstChild("RemoteFunction")
+        if not RemoteFunc or not RemoteFunc:IsA("RemoteFunction") then return end
+        
+        local success, err = pcall(function()
+            RemoteFunc:InvokeServer(true)
+        end)
+        if not success then
+            DebugLog("自动V4调用失败：" .. tostring(err), "warn")
+        end
+    end
+    
+    sectionAutoV4:Toggle("自动V4", "Toggle", false, function(IsEnabled)
+        getgenv().NewHandConfig.ToggleStates["自动V4"] = IsEnabled
+        
+        if autoV4Task then
+            task.cancel(autoV4Task)
+            autoV4Task = nil
+        end
+        
+        if IsEnabled then
+            autoV4Task = task.spawn(function()
+                while getgenv().NewHandConfig.ToggleStates["自动V4"] do
+                    callAwakeningRemote()
+                    task.wait(1)
+                end
+                autoV4Task = nil
+            end)
+        end
+    end)
+    
+    -- 快速攻击系统
+    local sectionFastAttack = tabCombat:section("NewHand快速攻击", true)
+    
+    -- 快速攻击模块
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local workspace = game:GetService("Workspace")
+    local RunService = game:GetService("RunService")
+    local Player = Players.LocalPlayer
+    
+    local FastAttackSystem = {
+        Distance = 10000,
+        attackMobs = true,
+        attackPlayers = true,
+        IsRunning = true,
+        consecutiveFailures = 0,
+        maxConsecutiveFailures = 5
+    }
+    
+    getgenv().NewHandFastAttack = FastAttackSystem
+    
+    local function SafeWaitForChild(parent, childName)
+        local success, result = pcall(function() return parent:WaitForChild(childName, 10) end)
+        if not success or not result then 
+            DebugLog("未找到组件: " .. childName, "warn")
+        end
+        return result
+    end
+    
+    local function CheckAndGetCoreComponents()
+        local Remotes, Modules, Net, RegisterAttack, RegisterHit, Enemies = nil, nil, nil, nil, nil, nil
+        while true do
+            Remotes = SafeWaitForChild(ReplicatedStorage, "Remotes")
+            Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
+            Net = Modules and SafeWaitForChild(Modules, "Net") or nil
+            RegisterAttack = Net and SafeWaitForChild(Net, "RE/RegisterAttack") or nil
+            RegisterHit = Net and SafeWaitForChild(Net, "RE/RegisterHit") or nil
+            Enemies = SafeWaitForChild(workspace, "Enemies")
+            if Remotes and Modules and Net and RegisterAttack and RegisterHit and Enemies then
+                return Remotes, Net, RegisterAttack, RegisterHit, Enemies
+            end
+            DebugLog("核心组件缺失，持续重试中...", "warn")
+            task.wait(1)
+        end
+    end
+    
+    local function IsAlive(character)
+        if not character then return false end
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        return humanoid and humanoid.Health and humanoid.Health > 0
+    end
+    
+    local function GetRandomValidPart(target)
+        local allParts = target:GetDescendants()
+        local validParts = {}
+        local humanoidRootPart = target:FindFirstChild("HumanoidRootPart")
+        local boneParts = humanoidRootPart and humanoidRootPart.Parent:GetDescendants() or {}
+        for _, part in ipairs(allParts) do
+            if part:IsA("BasePart") and part.CanCollide and table.find(boneParts, part) then
+                table.insert(validParts, part)
+            end
+        end
+        return #validParts > 0 and validParts[math.random(1, #validParts)] or target:FindFirstChild("HumanoidRootPart")
+    end
+    
+    local function AttackNearest()
+        if not FastAttackSystem.IsRunning then return end
+        local _, _, _, _, Enemies = CheckAndGetCoreComponents()
+        local OthersEnemies = {}
+        
+        -- 处理怪物
+        if FastAttackSystem.attackMobs and Enemies then
+            for _, Enemy in Enemies:GetChildren() do
+                if Enemy == Player.Character or not IsAlive(Enemy) then continue end
+                local foundPart = GetRandomValidPart(Enemy)
+                if foundPart and Player:DistanceFromCharacter(foundPart.Position) < FastAttackSystem.Distance then
+                    table.insert(OthersEnemies, {Enemy, foundPart})
+                end
+            end
+        end
+        
+        -- 处理玩家
+        if FastAttackSystem.attackPlayers then
+            for _, OtherPlayer in Players:GetPlayers() do
+                if OtherPlayer == Player then continue end
+                local OtherChar = OtherPlayer.Character
+                if not IsAlive(OtherChar) then continue end
+                local foundPart = GetRandomValidPart(OtherChar)
+                if foundPart and Player:DistanceFromCharacter(foundPart.Position) < FastAttackSystem.Distance then
+                    table.insert(OthersEnemies, {OtherChar, foundPart})
+                end
+            end
+        end
+        
+        if #OthersEnemies > 0 then
+            local _, Net, temp_RegisterAttack, temp_RegisterHit, _ = CheckAndGetCoreComponents()
+            if temp_RegisterAttack and temp_RegisterHit then
+                temp_RegisterAttack:FireServer(getgenv().NewHandConfig.FastAttack.ClickDelay or 0.3)
+                temp_RegisterHit:FireServer(OthersEnemies[1][2], OthersEnemies)
+                FastAttackSystem.consecutiveFailures = 0
+            else
+                FastAttackSystem.consecutiveFailures = FastAttackSystem.consecutiveFailures + 1
+            end
+        end
+    end
+    
+    -- 启动攻击循环
+    task.spawn(function()
+        while true do
+            task.wait(getgenv().NewHandConfig.FastAttack.ClickDelay or 0.3)
+            if FastAttackSystem.IsRunning then
+                AttackNearest()
+            end
+        end
+    end)
+    
+    -- UI控件
+    sectionFastAttack:Toggle("快速攻击开关", "FastAttackToggle", true, function(state)
+        FastAttackSystem.IsRunning = state
+        getgenv().NewHandConfig.FastAttack.Enabled = state
+    end)
+    
+    sectionFastAttack:Textbox("攻击范围", "AttackRange", "10000", function(text)
+        local num = tonumber(text) or 10000
+        num = math.floor(math.clamp(num, 1, 10000))
+        FastAttackSystem.Distance = num
+        getgenv().NewHandConfig.FastAttack.Distance = num
+    end)
+    
+    sectionFastAttack:Textbox("攻击速度", "ClickDelay", "0.3", function(text)
+        local num = tonumber(text) or 0.3
+        num = math.round(math.clamp(num, 0.01, 2) * 100) / 100
+        getgenv().NewHandConfig.FastAttack.ClickDelay = num
+    end)
+    
+    sectionFastAttack:Toggle("攻击怪物", "AttackMobsToggle", true, function(state)
+        FastAttackSystem.attackMobs = state
+        getgenv().NewHandConfig.FastAttack.AttackMobs = state
+    end)
+    
+    sectionFastAttack:Toggle("攻击玩家", "AttackPlayersToggle", true, function(state)
+        FastAttackSystem.attackPlayers = state
+        getgenv().NewHandConfig.FastAttack.AttackPlayers = state
+    end)
+    
+    -- 移动速度
+    local sectionMovement = tabCombat:section("移动速度", true)
+    local speedConnection = nil
+    
+    sectionMovement:Textbox("移动速度", "TranslateAccelSpeed", "50", function(Value)
+        local speed = tonumber(Value)
+        if speed then
+            getgenv().NewHandConfig.Movement.SpeedValue = speed
+        end
+    end)
+    
+    sectionMovement:Toggle("加速开关", "TranslateAccelToggle", false, function(State)
+        getgenv().NewHandConfig.Movement.SpeedEnabled = State
+        
+        if speedConnection then
+            speedConnection:Disconnect()
+            speedConnection = nil
+        end
+        
+        if State then
+            speedConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                if game:GetService("Players").LocalPlayer.Character and 
+                   game:GetService("Players").LocalPlayer.Character.Humanoid and 
+                   game:GetService("Players").LocalPlayer.Character.Humanoid.Parent then
+                   
+                    local humanoid = game:GetService("Players").LocalPlayer.Character.Humanoid
+                    
+                    if humanoid.MoveDirection.Magnitude > 0 then
+                        local moveDirection = humanoid.MoveDirection
+                        local acceleration = moveDirection * (getgenv().NewHandConfig.Movement.SpeedValue or 50) / 30
+                        
+                        game:GetService("Players").LocalPlayer.Character:TranslateBy(acceleration)
+                    end
+                end
+            end)
+        end
+    end)
+    
+    -- 视觉增强
+    local sectionESP = tabVisual:section("NewHand透视系统", true)
+    
+    local ESPConfig = {
+        MainSwitch = false,
+        ShowNameDistance = false,
+        ShowTracer = false,
+        ShowHealth = false
+    }
+    
+    getgenv().NewHandConfig.ESP = ESPConfig
+    
+    local ESPElements = {}
+    local Camera = workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+    
+    local function CleanupPlayerESP(player)
+        if not ESPElements[player.UserId] then return end
+        
+        if ESPElements[player.UserId].NameHealthESP then
+            ESPElements[player.UserId].NameHealthESP:Destroy()
+            ESPElements[player.UserId].NameHealthESP = nil
+        end
+        if ESPElements[player.UserId].NameHealthUpdateConn then
+            ESPElements[player.UserId].NameHealthUpdateConn:Disconnect()
+            ESPElements[player.UserId].NameHealthUpdateConn = nil
+        end
+        
+        if ESPElements[player.UserId].Tracer then
+            ESPElements[player.UserId].Tracer:Remove()
+            ESPElements[player.UserId].Tracer = nil
+        end
+        if ESPElements[player.UserId].TracerConn then
+            ESPElements[player.UserId].TracerConn:Disconnect()
+            ESPElements[player.UserId].TracerConn = nil
+        end
+    end
+    
+    local function CreateNameDistanceHealthESP(player)
+        if not player.Character or not player.Character:FindFirstChild("Head") then return end
+        local head = player.Character.Head
+        
+        if ESPElements[player.UserId] and ESPElements[player.UserId].NameHealthESP then
+            ESPElements[player.UserId].NameHealthESP:Destroy()
+        end
+        
+        local billboardGui = Instance.new("BillboardGui")
+        billboardGui.Name = "NewHand_ESP"
+        billboardGui.Adornee = head
+        billboardGui.Size = UDim2.new(0, 120, 0, 50)
+        billboardGui.StudsOffset = Vector3.new(0, 3.5, 0)
+        billboardGui.AlwaysOnTop = true
+        billboardGui.Parent = head
+        
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Parent = billboardGui
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = player.Name
+        nameLabel.Size = UDim2.new(1, 0, 0.33, 0)
+        nameLabel.TextColor3 = Color3.new(1, 1, 1)
+        nameLabel.TextScaled = true
+        nameLabel.Font = Enum.Font.GothamSemibold
+        
+        local healthLabel = Instance.new("TextLabel")
+        healthLabel.Parent = billboardGui
+        healthLabel.BackgroundTransparency = 1
+        healthLabel.Position = UDim2.new(0, 0, 0.33, 0)
+        healthLabel.Size = UDim2.new(1, 0, 0.33, 0)
+        healthLabel.TextColor3 = Color3.new(0, 1, 0)
+        healthLabel.TextScaled = true
+        healthLabel.Font = Enum.Font.Gotham
+        
+        local distanceLabel = Instance.new("TextLabel")
+        distanceLabel.Parent = billboardGui
+        distanceLabel.BackgroundTransparency = 1
+        distanceLabel.Position = UDim2.new(0, 0, 0.66, 0)
+        distanceLabel.Size = UDim2.new(1, 0, 0.33, 0)
+        distanceLabel.TextColor3 = Color3.new(1, 0.5, 0)
+        distanceLabel.TextScaled = true
+        distanceLabel.Font = Enum.Font.Gotham
+        
+        local updateConnection = RunService.RenderStepped:Connect(function()
+            if not billboardGui.Parent or not LocalPlayer.Character or not player.Character then 
+                return 
+            end
+            
+            local localRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+            if localRoot and targetRoot then
+                local distance = (localRoot.Position - targetRoot.Position).Magnitude
+                distanceLabel.Text = string.format("%.1f米", distance)   
+            end
+            
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                local health = math.floor(humanoid.Health)
+                local maxHealth = math.floor(humanoid.MaxHealth)
+                
+                local healthPercent = health / maxHealth
+                if healthPercent > 0.7 then
+                    healthLabel.TextColor3 = Color3.new(0, 1, 0)
+                elseif healthPercent > 0.3 then
+                    healthLabel.TextColor3 = Color3.new(1, 1, 0)
+                else
+                    healthLabel.TextColor3 = Color3.new(1, 0, 0)
+                end
+                
+                healthLabel.Text = string.format("血量: %d/%d", health, maxHealth)
+            end
+        end)
+        
+        ESPElements[player.UserId] = ESPElements[player.UserId] or {}
+        ESPElements[player.UserId].NameHealthESP = billboardGui
+        ESPElements[player.UserId].NameHealthUpdateConn = updateConnection
+    end
+    
+    local function CreateTracerESP(player)
+        if ESPElements[player.UserId] and ESPElements[player.UserId].Tracer then
+            ESPElements[player.UserId].Tracer:Remove()
+        end
+        
+        local tracer = Drawing.new("Line")
+        tracer.Color = Color3.new(1, 0, 0)
+        tracer.Thickness = 2
+        tracer.Transparency = 0.8
+        tracer.Visible = false
+        
+        local renderConnection = RunService.RenderStepped:Connect(function()
+            if not ESPConfig.MainSwitch or not ESPConfig.ShowTracer then
+                tracer.Visible = false
+                return
+            end
+            
+            local localChar = LocalPlayer.Character
+            local targetChar = player.Character
+            if not localChar or not targetChar then
+                tracer.Visible = false
+                return
+            end
+            
+            local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local screenPos, isVisible = Camera:WorldToViewportPoint(targetRoot.Position)
+                if isVisible then
+                    tracer.Visible = true
+                    tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                    tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                else
+                    tracer.Visible = false
+                end
+            else
+                tracer.Visible = false
+            end
+        end)
+        
+        ESPElements[player.UserId] = ESPElements[player.UserId] or {}
+        ESPElements[player.UserId].Tracer = tracer
+        ESPElements[player.UserId].TracerConn = renderConnection
+    end
+    
+    local function UpdatePlayerESP(player)
+        if player == LocalPlayer then return end
+        
+        if not player.Character then
+            CleanupPlayerESP(player)
+            return
+        end
+        
+        if not player.Character:FindFirstChild("Head") or not player.Character:FindFirstChild("HumanoidRootPart") then
+            CleanupPlayerESP(player)
+            return
+        end
+        
+        if ESPConfig.MainSwitch then
+            CreateTracerESP(player)
+            
+            if ESPConfig.ShowNameDistance or ESPConfig.ShowHealth then
+                CreateNameDistanceHealthESP(player)
+            else
+                if ESPElements[player.UserId] and ESPElements[player.UserId].NameHealthESP then
+                    ESPElements[player.UserId].NameHealthESP:Destroy()
+                    ESPElements[player.UserId].NameHealthESP = nil
+                end
+                if ESPElements[player.UserId] and ESPElements[player.UserId].NameHealthUpdateConn then
+                    ESPElements[player.UserId].NameHealthUpdateConn:Disconnect()
+                    ESPElements[player.UserId].NameHealthUpdateConn = nil
+                end
+            end
+        else
+            CleanupPlayerESP(player)
+        end
+    end
+    
+    local function UpdateAllESP()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                UpdatePlayerESP(player)
+            end
+        end
+    end
+    
+    -- ESP控制
+    sectionESP:Toggle("透视总开关", "ESP_Main", false, function(enabled)
+        ESPConfig.MainSwitch = enabled
+        getgenv().NewHandConfig.ESP.Enabled = enabled
+        UpdateAllESP()
+    end)
+    
+    sectionESP:Toggle("显示玩家名字+距离", "ESP_NameDistance", false, function(enabled)
+        ESPConfig.ShowNameDistance = enabled
+        getgenv().NewHandConfig.ESP.ShowNameDistance = enabled
+        UpdateAllESP()
+    end)
+    
+    sectionESP:Toggle("显示玩家血量", "ESP_Health", false, function(enabled)
+        ESPConfig.ShowHealth = enabled
+        getgenv().NewHandConfig.ESP.ShowHealth = enabled
+        UpdateAllESP()
+    end)
+    
+    sectionESP:Toggle("射线追踪", "ESP_Tracer", false, function(enabled)
+        ESPConfig.ShowTracer = enabled
+        getgenv().NewHandConfig.ESP.ShowTracer = enabled
+        UpdateAllESP()
+    end)
+    
+    -- 初始化ESP
+    task.spawn(function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                UpdatePlayerESP(player)
+            end
+        end
+        
+        Players.PlayerAdded:Connect(function(player)
+            if player == LocalPlayer then return end
+            task.wait(1)
+            UpdatePlayerESP(player)
+        end)
+        
+        Players.PlayerRemoving:Connect(function(player)
+            CleanupPlayerESP(player)
+        end)
+    end)
+    
+    -- 传送功能
+    local sectionTeleportGeneral = tabTeleport:section("通用传送", true)
+    
+    sectionTeleportGeneral:Button("传送至一海", function()
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelMain")
+        DebugLog("正在传送至一海")
+    end)
+    
+    sectionTeleportGeneral:Button("传送至二海", function()
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelDressrosa")
+        DebugLog("正在传送至二海")
+    end)
+    
+    sectionTeleportGeneral:Button("传送至三海", function()
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelZou")
+        DebugLog("正在传送至三海")
+    end)
+    
+    local sectionTeleportSea2 = tabTeleport:section("二海传送点", true)
+    
+    sectionTeleportSea2:Button("传送至天鹅的房间", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(-287.37, 305.81, 592.98)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到天鹅的房间")
+        end
+    end)
+    
+    sectionTeleportSea2:Button("传送至豪宅", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(2286.93, 15.06, 910.51)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到豪宅")
+        end
+    end)
+    
+    sectionTeleportSea2:Button("传送至鬼船里", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(-6501.06, 83.11, -123.52)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到鬼船里")
+        end
+    end)
+    
+    sectionTeleportSea2:Button("传送至鬼船外", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(922.78, 123.96, 32842.40)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到鬼船外")
+        end
+    end)
+    
+    local sectionTeleportSea3 = tabTeleport:section("三海传送点", true)
+    
+    sectionTeleportSea3:Button("传送至海洋城堡", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(-12463.60, 376.26, -7566.08)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到海洋城堡")
+        end
+    end)
+    
+    sectionTeleportSea3:Button("传送至海龟豪宅", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(-5060.41, 316.43, -3192.30)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到海龟豪宅")
+        end
+    end)
+    
+    sectionTeleportSea3:Button("传送至司法岛", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(-5096.48, 316.43, -3177.91)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到司法岛")
+        end
+    end)
+    
+    sectionTeleportSea3:Button("传送至九头蛇", function()
+        local player = game:GetService("Players").LocalPlayer
+        local targetPosition = Vector3.new(-5027.03, 316.43, -3206.07)
+        
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            DebugLog("已传送到九头蛇")
+        end
+    end)
+    
+    -- 其他功能
+    local sectionOther = tabMisc:section("NewHand其他功能", true)
+    
+    sectionOther:Button("飞行脚本", function()
+        DebugLog("正在加载飞行脚本...")
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/cuteshark321-alt/854/refs/heads/main/fly"))()
+        DebugLog("飞行脚本已加载")
+    end)
+    
+    sectionOther:Button("法天象地", function()
+        DebugLog("正在加载法天象地...")
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/xiaoxuan-77/-/refs/heads/main/法天像地"))()
+        DebugLog("法天象地已加载")
+    end)
+    
+    sectionOther:Button("REDZ脚本", function()
+        DebugLog("正在加载REDZ脚本...")
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/xiaoxuan-77/-/refs/heads/main/redz"))()
+        DebugLog("REDZ脚本已加载")
+    end)
+    
+    sectionOther:Button("皮脚本", function()
+        DebugLog("正在加载皮脚本...")
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/xiaoxuan-77/-/refs/heads/main/皮"))()
+        DebugLog("皮脚本已加载")
+    end)
+    
+    sectionOther:Button("FPS优化", function()
+        DebugLog("正在加载FPS优化...")
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/xiaoxuan-77/-/refs/heads/main/fps优化"))()
+        DebugLog("FPS优化已加载")
+    end)
+    
+    sectionOther:Button("HOHO脚本", function()
+        DebugLog("正在加载HOHO脚本...")
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/acsu123/HOHO_H/main/Loading_UI'))()
+        DebugLog("HOHO脚本已加载")
+    end)
+    
+    local sectionSettings = tabMisc:section("NewHand设置", true)
+    
+    sectionSettings:Toggle("调试模式", "DebugMode", false, function(enabled)
+        getgenv().NewHandConfig.DebugMode = enabled
+        if enabled then
+            DebugLog("调试模式已开启", "info")
+        end
+    end)
+    
+    sectionSettings:Button("保存设置", function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "NewHand脚本",
+            Text = "NewHand脚本设置已保存",
+            Duration = 3
+        })
+        DebugLog("设置已保存")
+    end)
+    
+    sectionSettings:Button("重置设置", function()
+        getgenv().NewHandConfig = {
+            Version = "3.0",
+            Author = "NewHand",
+            ScriptName = "NewHand脚本",
+            DebugMode = false,
+            ToggleStates = {},
+            FastAttack = {
+                Enabled = true,
+                Distance = 10000,
+                AttackMobs = true,
+                AttackPlayers = true,
+                ClickDelay = 0.3
+            },
+            ESP = {
+                Enabled = false,
+                ShowNameDistance = false,
+                ShowHealth = false,
+                ShowTracer = false
+            },
+            Movement = {
+                SpeedEnabled = false,
+                SpeedValue = 50,
+                FlyEnabled = false
+            }
+        }
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "NewHand脚本",
+            Text = "NewHand脚本设置已重置",
+            Duration = 3
+        })
+        DebugLog("设置已重置")
+    end)
+    
+    sectionSettings:Button("重新加载脚本", function()
+        DebugLog("正在重新加载脚本...")
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "NewHand脚本",
+            Text = "正在重新加载NewHand脚本...",
+            Duration = 3
+        })
+        task.wait(1)
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/your-repo/NewHand-Script/main/main.lua"))()
+    end)
+    
+    return win
+end
+
+-- ============================================
+-- 启动函数
+-- ============================================
+local function StartScript()
+    DebugLog("NewHand脚本开始加载...", "info")
+    
+    -- 显示NewHand加载通知
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "NewHand脚本",
+        Text = "正在加载NewHand脚本...",
+        Duration = 3
+    })
+    
+    -- 设置防检测
+    SetupAntiDetection()
+    
+    -- 创建UI
+    local ui = CreateUI()
+    if ui then
+        DebugLog("NewHand脚本UI创建成功", "info")
+    else
+        DebugLog("NewHand脚本UI创建失败", "error")
+    end
+    
+    -- 显示完成通知
+    task.wait(1)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "NewHand脚本",
+        Text = "NewHand脚本加载完成！祝您使用愉快 - NewHand制作",
+        Duration = 5
+    })
+    
+    DebugLog("NewHand脚本加载完成", "info")
+    
+    -- 打印NewHand欢迎信息
+    print("\n" .. string.rep("=", 50))
+    print("         欢迎使用 NewHand脚本 v3.0")
+    print("             作者: NewHand")
+    print("           感谢您的使用！")
+    print(string.rep("=", 50) .. "\n")
+end
+
+-- ============================================
+-- 主执行
+-- ============================================
+-- 等待游戏完全加载
+if game:IsLoaded() then
+    local success, err = pcall(StartScript)
+    if not success then
+        warn("NewHand脚本加载错误: " .. tostring(err))
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "NewHand脚本",
+            Text = "加载错误: " .. tostring(err),
+            Duration = 5
+        })
+    end
+else
+    game.Loaded:Wait()
+    local success, err = pcall(StartScript)
+    if not success then
+        warn("NewHand脚本加载错误: " .. tostring(err))
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "NewHand脚本",
+            Text = "加载错误: " .. tostring(err),
+            Duration = 5
+        })
+    end
+end
+
+-- ============================================
+-- 全局清理函数
+-- ============================================
+getgenv().CleanupNewHandScript = function()
+    DebugLog("正在清理NewHand脚本...", "info")
+    
+    -- 清理ESP
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("Head") then
+            local esp = player.Character.Head:FindFirstChild("NewHand_ESP")
+            if esp then
+                esp:Destroy()
+            end
+        end
+    end
+    
+    -- 清理连接
+    if getgenv().NewHandConnections then
+        for _, conn in pairs(getgenv().NewHandConnections) do
+            if conn then
+                pcall(function() conn:Disconnect() end)
+            end
+        end
+    end
+    
+    -- 清理全局变量
+    getgenv().NewHandConfig = nil
+    getgenv().NewHandFastAttack = nil
+    getgenv().NewHandConnections = nil
+    getgenv().CleanupNewHandScript = nil
+    
+    DebugLog("NewHand脚本清理完成", "info")
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "NewHand脚本",
+        Text = "NewHand脚本已清理",
+        Duration = 3
+    })
+end
