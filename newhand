@@ -168,7 +168,7 @@ end)
 local about2 = UITab2:section("外部脚本",true)
 
 about2:Button("飛行",function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/cuteshark321-alt/854/refs/heads/main/newhand"))()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/cuteshark321-alt/854/refs/heads/main/fly"))()
 end)
 
 about2:Button("法天象地",function()
