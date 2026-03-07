@@ -1,4 +1,4 @@
--- 自定義 UI 庫（完整版 - 替代 WindUI）
+-- WindUI 風格自定義 UI（完全複製外觀）
 local CustomUI = {}
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -11,29 +11,63 @@ local function tween(obj, time, props)
     return TweenService:Create(obj, TweenInfo.new(time), props)
 end
 
--- 主題顏色
+-- WindUI 主題顏色（完全複製）
 CustomUI.Themes = {
-    Dark = {
-        Background = Color3.fromRGB(20, 20, 25),
-        Surface = Color3.fromRGB(30, 30, 35),
-        Primary = Color3.fromRGB(0, 145, 255),
-        Text = Color3.fromRGB(255, 255, 255),
-        TextSecondary = Color3.fromRGB(150, 150, 150),
-        Border = Color3.fromRGB(50, 50, 55),
-        Success = Color3.fromRGB(40, 200, 100),
-        Danger = Color3.fromRGB(255, 70, 70),
-        Warning = Color3.fromRGB(255, 170, 0)
-    },
     Light = {
-        Background = Color3.fromRGB(240, 240, 245),
-        Surface = Color3.fromRGB(255, 255, 255),
-        Primary = Color3.fromRGB(0, 120, 255),
-        Text = Color3.fromRGB(20, 20, 25),
-        TextSecondary = Color3.fromRGB(100, 100, 110),
-        Border = Color3.fromRGB(200, 200, 210),
-        Success = Color3.fromRGB(0, 180, 80),
-        Danger = Color3.fromRGB(220, 50, 50),
-        Warning = Color3.fromRGB(240, 150, 0)
+        Name = "Light",
+        Accent = Color3.fromHex("#FFFFFF"),
+        Dialog = Color3.fromHex("#f4f4f5"),
+        Outline = Color3.fromHex("#09090b"),
+        Text = Color3.fromHex("#000000"),
+        Placeholder = Color3.fromHex("#555555"),
+        Background = Color3.fromHex("#e4e4e7"),
+        Button = Color3.fromHex("#18181b"),
+        Icon = Color3.fromHex("#52525b"),
+        Toggle = Color3.fromHex("#33C759"),
+        Slider = Color3.fromHex("#0091FF"),
+        Checkbox = Color3.fromHex("#0091FF"),
+        Primary = Color3.fromHex("#0091FF"),
+        White = Color3.new(1,1,1),
+        Black = Color3.new(0,0,0),
+        Hover = Color3.fromHex("#52525b"),
+        WindowBackground = Color3.fromHex("#e4e4e7"),
+        WindowTopbarTitle = Color3.fromHex("#000000"),
+        WindowTopbarIcon = Color3.fromHex("#52525b"),
+        TabBackground = Color3.fromHex("#f4f4f5"),
+        TabTitle = Color3.fromHex("#000000"),
+        TabIcon = Color3.fromHex("#52525b"),
+        ElementBackground = Color3.fromHex("#f4f4f5"),
+        ElementTitle = Color3.fromHex("#000000"),
+        ElementDesc = Color3.fromHex("#555555"),
+        ElementIcon = Color3.fromHex("#52525b"),
+    },
+    Dark = {
+        Name = "Dark",
+        Accent = Color3.fromHex("#18181b"),
+        Dialog = Color3.fromHex("#161616"),
+        Outline = Color3.fromHex("#FFFFFF"),
+        Text = Color3.fromHex("#FFFFFF"),
+        Placeholder = Color3.fromHex("#7a7a7a"),
+        Background = Color3.fromHex("#101010"),
+        Button = Color3.fromHex("#52525b"),
+        Icon = Color3.fromHex("#a1a1aa"),
+        Toggle = Color3.fromHex("#33C759"),
+        Slider = Color3.fromHex("#0091FF"),
+        Checkbox = Color3.fromHex("#0091FF"),
+        Primary = Color3.fromHex("#0091FF"),
+        White = Color3.new(1,1,1),
+        Black = Color3.new(0,0,0),
+        Hover = Color3.fromHex("#52525b"),
+        WindowBackground = Color3.fromHex("#101010"),
+        WindowTopbarTitle = Color3.fromHex("#FFFFFF"),
+        WindowTopbarIcon = Color3.fromHex("#a1a1aa"),
+        TabBackground = Color3.fromHex("#18181b"),
+        TabTitle = Color3.fromHex("#FFFFFF"),
+        TabIcon = Color3.fromHex("#a1a1aa"),
+        ElementBackground = Color3.fromHex("#18181b"),
+        ElementTitle = Color3.fromHex("#FFFFFF"),
+        ElementDesc = Color3.fromHex("#7a7a7a"),
+        ElementIcon = Color3.fromHex("#a1a1aa"),
     }
 }
 
@@ -56,18 +90,14 @@ function CustomUI.new(class, props, children)
     return obj
 end
 
--- 創建帶圓角的框架
-function CustomUI.newRoundFrame(radius, props, children)
+-- WindUI 風格的圓角框架
+function CustomUI.newRoundFrame(radius, style, props, children)
     local frame = CustomUI.new("ImageLabel", {
         BackgroundTransparency = 1,
         Image = "rbxassetid://3570695787",
         ScaleType = "Slice",
         SliceCenter = Rect.new(radius, radius, radius, radius),
         SliceScale = 1,
-    }, {
-        CustomUI.new("UICorner", {
-            CornerRadius = UDim.new(0, radius)
-        })
     })
     
     for k, v in pairs(props or {}) do
@@ -83,29 +113,517 @@ function CustomUI.newRoundFrame(radius, props, children)
     return frame
 end
 
+-- WindUI 風格的按鈕
+function CustomUI:CreateButton(config)
+    config = config or {}
+    local theme = self.Themes[self.CurrentTheme or "Dark"]
+    
+    local button = CustomUI.new("TextButton", {
+        Size = UDim2.new(1, 0, 0, 36),
+        BackgroundTransparency = 1,
+        Text = "",
+        Parent = config.Parent
+    })
+    
+    local bg = CustomUI.newRoundFrame(10, "Squircle", {
+        Size = UDim2.new(1, 0, 1, 0),
+        ImageColor3 = theme.Button,
+        ImageTransparency = 0,
+        Parent = button
+    })
+    
+    local text = CustomUI.new("TextLabel", {
+        Size = UDim2.new(1, -32, 1, 0),
+        Position = UDim2.new(0, 16, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Title or "Button",
+        TextColor3 = theme.Text,
+        TextSize = 16,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = "Left",
+        Parent = button
+    })
+    
+    button.MouseEnter:Connect(function()
+        tween(bg, 0.1, { ImageTransparency = 0.9 }):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        tween(bg, 0.1, { ImageTransparency = 0 }):Play()
+    end)
+    
+    button.MouseButton1Click:Connect(function()
+        if config.Callback then
+            config.Callback()
+        end
+    end)
+    
+    return button
+end
+
+-- WindUI 風格的切換開關
+function CustomUI:CreateToggle(config)
+    config = config or {}
+    local theme = self.Themes[self.CurrentTheme or "Dark"]
+    local value = config.Value or false
+    
+    local frame = CustomUI.new("Frame", {
+        Size = UDim2.new(1, 0, 0, 36),
+        BackgroundTransparency = 1,
+        Parent = config.Parent
+    })
+    
+    local text = CustomUI.new("TextLabel", {
+        Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.new(0, 16, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Title or "Toggle",
+        TextColor3 = theme.Text,
+        TextSize = 16,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = "Left",
+        Parent = frame
+    })
+    
+    local toggleBg = CustomUI.newRoundFrame(10, "Squircle", {
+        Size = UDim2.new(0, 44, 0, 24),
+        Position = UDim2.new(1, -60, 0.5, -12),
+        ImageColor3 = value and theme.Toggle or theme.Button,
+        ImageTransparency = 0,
+        Parent = frame
+    })
+    
+    local knob = CustomUI.newRoundFrame(10, "Squircle", {
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10),
+        ImageColor3 = theme.White,
+        Parent = toggleBg
+    })
+    
+    local button = CustomUI.new("TextButton", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        Parent = toggleBg
+    })
+    
+    button.MouseButton1Click:Connect(function()
+        value = not value
+        toggleBg.ImageColor3 = value and theme.Toggle or theme.Button
+        tween(knob, 0.2, {
+            Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10)
+        }):Play()
+        
+        if config.Callback then
+            config.Callback(value)
+        end
+    end)
+    
+    frame.Set = function(_, newValue)
+        value = newValue
+        toggleBg.ImageColor3 = value and theme.Toggle or theme.Button
+        knob.Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10)
+    end
+    
+    return frame
+end
+
+-- WindUI 風格的滑塊
+function CustomUI:CreateSlider(config)
+    config = config or {}
+    local theme = self.Themes[self.CurrentTheme or "Dark"]
+    local min = config.Min or 0
+    local max = config.Max or 100
+    local value = config.Default or min
+    
+    local frame = CustomUI.new("Frame", {
+        Size = UDim2.new(1, 0, 0, 50),
+        BackgroundTransparency = 1,
+        Parent = config.Parent
+    })
+    
+    local title = CustomUI.new("TextLabel", {
+        Size = UDim2.new(1, -80, 0, 20),
+        Position = UDim2.new(0, 16, 0, 4),
+        BackgroundTransparency = 1,
+        Text = config.Title or "Slider",
+        TextColor3 = theme.Text,
+        TextSize = 16,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = "Left",
+        Parent = frame
+    })
+    
+    local valueLabel = CustomUI.new("TextLabel", {
+        Size = UDim2.new(0, 60, 0, 20),
+        Position = UDim2.new(1, -76, 0, 4),
+        BackgroundTransparency = 1,
+        Text = tostring(value),
+        TextColor3 = theme.Slider,
+        TextSize = 14,
+        Font = Enum.Font.GothamBold,
+        Parent = frame
+    })
+    
+    local track = CustomUI.new("Frame", {
+        Size = UDim2.new(1, -32, 0, 4),
+        Position = UDim2.new(0, 16, 0, 34),
+        BackgroundColor3 = theme.Button,
+        Parent = frame
+    }, {
+        CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+    })
+    
+    local fill = CustomUI.new("Frame", {
+        Size = UDim2.new((value - min) / (max - min), 0, 1, 0),
+        BackgroundColor3 = theme.Slider,
+        Parent = track
+    }, {
+        CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+    })
+    
+    local knob = CustomUI.new("Frame", {
+        Size = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new((value - min) / (max - min), -8, 0.5, -8),
+        BackgroundColor3 = theme.White,
+        Parent = track
+    }, {
+        CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+    })
+    
+    local dragging = false
+    
+    knob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+    
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local pos = UserInputService:GetMouseLocation()
+            local trackPos = track.AbsolutePosition
+            local trackSize = track.AbsoluteSize
+            
+            local percent = math.clamp((pos.X - trackPos.X) / trackSize.X, 0, 1)
+            value = min + (max - min) * percent
+            if config.Step then
+                value = math.floor(value / config.Step + 0.5) * config.Step
+                percent = (value - min) / (max - min)
+            end
+            
+            fill.Size = UDim2.new(percent, 0, 1, 0)
+            knob.Position = UDim2.new(percent, -8, 0.5, -8)
+            valueLabel.Text = tostring(math.floor(value * 100) / 100)
+            
+            if config.Callback then
+                config.Callback(value)
+            end
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    frame.Set = function(_, newValue)
+        value = newValue
+        local percent = (value - min) / (max - min)
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        knob.Position = UDim2.new(percent, -8, 0.5, -8)
+        valueLabel.Text = tostring(math.floor(value * 100) / 100)
+    end
+    
+    return frame
+end
+
+-- WindUI 風格的輸入框
+function CustomUI:CreateInput(config)
+    config = config or {}
+    local theme = self.Themes[self.CurrentTheme or "Dark"]
+    
+    local frame = CustomUI.new("Frame", {
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
+        Parent = config.Parent
+    })
+    
+    local title = CustomUI.new("TextLabel", {
+        Size = UDim2.new(1, -120, 1, 0),
+        Position = UDim2.new(0, 16, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Title or "Input",
+        TextColor3 = theme.Text,
+        TextSize = 16,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = "Left",
+        Parent = frame
+    })
+    
+    local bg = CustomUI.newRoundFrame(10, "Squircle", {
+        Size = UDim2.new(0, 120, 0, 32),
+        Position = UDim2.new(1, -136, 0.5, -16),
+        ImageColor3 = theme.Button,
+        ImageTransparency = 0.9,
+        Parent = frame
+    })
+    
+    local input = CustomUI.new("TextBox", {
+        Size = UDim2.new(1, -12, 1, 0),
+        Position = UDim2.new(0, 6, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Default or "",
+        PlaceholderText = config.Placeholder or "輸入...",
+        TextColor3 = theme.Text,
+        PlaceholderColor3 = theme.Placeholder,
+        TextSize = 14,
+        Font = Enum.Font.Gotham,
+        ClearTextOnFocus = false,
+        Parent = bg
+    })
+    
+    input.FocusLost:Connect(function()
+        if config.Callback then
+            config.Callback(input.Text)
+        end
+    end)
+    
+    frame.Set = function(_, newValue)
+        input.Text = newValue
+    end
+    
+    return frame
+end
+
+-- WindUI 風格的下拉選單
+function CustomUI:CreateDropdown(config)
+    config = config or {}
+    local theme = self.Themes[self.CurrentTheme or "Dark"]
+    local values = config.Values or {}
+    local value = config.Value or (values[1] or "")
+    
+    local frame = CustomUI.new("Frame", {
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
+        Parent = config.Parent
+    })
+    
+    local title = CustomUI.new("TextLabel", {
+        Size = UDim2.new(1, -120, 1, 0),
+        Position = UDim2.new(0, 16, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Title or "Dropdown",
+        TextColor3 = theme.Text,
+        TextSize = 16,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = "Left",
+        Parent = frame
+    })
+    
+    local box = CustomUI.new("TextButton", {
+        Size = UDim2.new(0, 120, 0, 32),
+        Position = UDim2.new(1, -136, 0.5, -16),
+        BackgroundTransparency = 1,
+        Text = "",
+        Parent = frame
+    })
+    
+    local boxBg = CustomUI.newRoundFrame(10, "Squircle", {
+        Size = UDim2.new(1, 0, 1, 0),
+        ImageColor3 = theme.Button,
+        ImageTransparency = 0.9,
+        Parent = box
+    })
+    
+    local selectedLabel = CustomUI.new("TextLabel", {
+        Size = UDim2.new(1, -24, 1, 0),
+        Position = UDim2.new(0, 8, 0, 0),
+        BackgroundTransparency = 1,
+        Text = value,
+        TextColor3 = theme.Text,
+        TextSize = 14,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = "Left",
+        Parent = box
+    })
+    
+    local arrow = CustomUI.new("ImageLabel", {
+        Size = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new(1, -20, 0.5, -8),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://6031090990",
+        ImageColor3 = theme.Icon,
+        Parent = box
+    })
+    
+    local menu = CustomUI.new("Frame", {
+        Size = UDim2.new(0, 120, 0, 0),
+        Position = UDim2.new(1, -136, 1, 4),
+        BackgroundTransparency = 1,
+        Visible = false,
+        Parent = frame,
+        ZIndex = 10
+    })
+    
+    local menuBg = CustomUI.newRoundFrame(10, "Squircle", {
+        Size = UDim2.new(1, 0, 1, 0),
+        ImageColor3 = theme.Dialog,
+        ImageTransparency = 0,
+        Parent = menu
+    })
+    
+    local list = CustomUI.new("ScrollingFrame", {
+        Size = UDim2.new(1, -8, 1, -8),
+        Position = UDim2.new(0, 4, 0, 4),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 4,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = "Y",
+        Parent = menuBg
+    }, {
+        CustomUI.new("UIListLayout", {
+            Padding = UDim.new(0, 2),
+            SortOrder = "LayoutOrder"
+        })
+    })
+    
+    local function refreshOptions(newValues)
+        for _, child in pairs(list:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        
+        for _, val in ipairs(newValues) do
+            local option = CustomUI.new("TextButton", {
+                Size = UDim2.new(1, 0, 0, 30),
+                BackgroundTransparency = 1,
+                Text = "",
+                Parent = list
+            })
+            
+            local optionLabel = CustomUI.new("TextLabel", {
+                Size = UDim2.new(1, -16, 1, 0),
+                Position = UDim2.new(0, 8, 0, 0),
+                BackgroundTransparency = 1,
+                Text = val,
+                TextColor3 = theme.Text,
+                TextSize = 14,
+                Font = Enum.Font.Gotham,
+                TextXAlignment = "Left",
+                Parent = option
+            })
+            
+            option.MouseEnter:Connect(function()
+                option.BackgroundColor3 = theme.Button
+                option.BackgroundTransparency = 0.9
+            end)
+            
+            option.MouseLeave:Connect(function()
+                option.BackgroundTransparency = 1
+            end)
+            
+            option.MouseButton1Click:Connect(function()
+                value = val
+                selectedLabel.Text = value
+                menu.Visible = false
+                
+                if config.Callback then
+                    config.Callback(value)
+                end
+            end)
+        end
+        
+        menu.Size = UDim2.new(0, 120, 0, math.min(#newValues * 32 + 8, 200))
+    end
+    
+    refreshOptions(values)
+    
+    box.MouseButton1Click:Connect(function()
+        menu.Visible = not menu.Visible
+    end)
+    
+    frame.Refresh = function(_, newValues)
+        refreshOptions(newValues)
+    end
+    
+    frame.Set = function(_, newValue)
+        value = newValue
+        selectedLabel.Text = value
+    end
+    
+    return frame
+end
+
+-- WindUI 風格的段落
+function CustomUI:CreateParagraph(config)
+    config = config or {}
+    local theme = self.Themes[self.CurrentTheme or "Dark"]
+    
+    local frame = CustomUI.new("Frame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = "Y",
+        Parent = config.Parent
+    })
+    
+    local text = CustomUI.new("TextLabel", {
+        Size = UDim2.new(1, -32, 0, 0),
+        Position = UDim2.new(0, 16, 0, 16),
+        BackgroundTransparency = 1,
+        Text = config.Title or "",
+        TextColor3 = config.Color or theme.Text,
+        TextSize = config.TextSize or 16,
+        Font = config.Font or Enum.Font.Gotham,
+        TextWrapped = true,
+        RichText = true,
+        AutomaticSize = "Y",
+        Parent = frame
+    })
+    
+    if config.Desc then
+        local desc = CustomUI.new("TextLabel", {
+            Size = UDim2.new(1, -32, 0, 0),
+            Position = UDim2.new(0, 16, 0, text.AbsoluteSize.Y + 24),
+            BackgroundTransparency = 1,
+            Text = config.Desc,
+            TextColor3 = theme.Placeholder,
+            TextSize = 14,
+            Font = Enum.Font.Gotham,
+            TextWrapped = true,
+            AutomaticSize = "Y",
+            Parent = frame
+        })
+    end
+    
+    return frame
+end
+
 -- 創建通知
 function CustomUI:Notify(config)
     config = config or {}
     local theme = self.Themes[self.CurrentTheme or "Dark"]
     
-    local notification = CustomUI.new("Frame", {
+    if not self.NotificationHolder then
+        self.NotificationHolder = CustomUI.new("Frame", {
+            Name = "Notifications",
+            Size = UDim2.new(0, 320, 1, -20),
+            Position = UDim2.new(1, -330, 0, 10),
+            BackgroundTransparency = 1,
+            Parent = self.ScreenGui
+        })
+    end
+    
+    local notification = CustomUI.newRoundFrame(10, "Squircle", {
         Size = UDim2.new(0, 300, 0, 0),
         Position = UDim2.new(1, -320, 1, -100),
-        BackgroundColor3 = theme.Surface,
-        BackgroundTransparency = 0.1,
+        ImageColor3 = theme.Dialog,
+        ImageTransparency = 0,
         Parent = self.NotificationHolder
-    }, {
-        CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 8) }),
-        CustomUI.new("Frame", {
-            Size = UDim2.new(1, 0, 0, 4),
-            BackgroundColor3 = theme.Primary,
-            Position = UDim2.new(0, 0, 0, 0)
-        }, {
-            CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 8) })
-        })
     })
     
-    -- 標題
     if config.Title then
         CustomUI.new("TextLabel", {
             Size = UDim2.new(1, -24, 0, 20),
@@ -120,14 +638,13 @@ function CustomUI:Notify(config)
         })
     end
     
-    -- 內容
     if config.Content then
         CustomUI.new("TextLabel", {
             Size = UDim2.new(1, -24, 0, 36),
             Position = UDim2.new(0, 12, 0, config.Title and 32 or 12),
             BackgroundTransparency = 1,
             Text = config.Content,
-            TextColor3 = theme.TextSecondary,
+            TextColor3 = theme.Placeholder,
             TextSize = 14,
             Font = Enum.Font.Gotham,
             TextWrapped = true,
@@ -136,10 +653,11 @@ function CustomUI:Notify(config)
         })
     end
     
-    notification.Size = UDim2.new(0, 300, 0, (config.Title and 20 or 0) + (config.Content and 48 or 0) + 16)
+    local height = (config.Title and 20 or 0) + (config.Content and 48 or 0) + 16
+    notification.Size = UDim2.new(0, 300, 0, height)
     
     tween(notification, 0.3, {
-        Position = UDim2.new(1, -320, 1, -100 - notification.AbsoluteSize.Y)
+        Position = UDim2.new(1, -320, 1, -100 - height - 10)
     }):Play()
     
     if config.Duration then
@@ -154,7 +672,7 @@ function CustomUI:Notify(config)
     return notification
 end
 
--- 創建主窗口
+-- 創建主窗口（完全複製 WindUI 外觀）
 function CustomUI:CreateWindow(config)
     config = config or {}
     self.CurrentTheme = config.Theme or "Dark"
@@ -163,111 +681,101 @@ function CustomUI:CreateWindow(config)
     local window = {}
     
     -- 創建主 GUI
-    local screenGui = CustomUI.new("ScreenGui", {
-        Name = "CustomUI",
+    self.ScreenGui = CustomUI.new("ScreenGui", {
+        Name = "WindUI_Style",
         ResetOnSpawn = false,
         ZIndexBehavior = "Sibling",
         Parent = game:GetService("CoreGui")
     })
     
-    -- 通知容器
-    self.NotificationHolder = CustomUI.new("Frame", {
-        Name = "Notifications",
-        Size = UDim2.new(0, 320, 1, -20),
-        Position = UDim2.new(1, -330, 0, 10),
-        BackgroundTransparency = 1,
-        Parent = screenGui
-    })
-    
-    -- 主窗口框架
-    window.Frame = CustomUI.newRoundFrame(16, {
+    -- 主窗口 - 使用 WindUI 的白色半透明風格
+    window.Frame = CustomUI.newRoundFrame(16, "Squircle", {
         Name = "Window",
-        Size = config.Size or UDim2.new(0, 600, 0, 500),
-        Position = UDim2.new(0.5, -300, 0.5, -250),
-        BackgroundColor3 = theme.Background,
+        Size = config.Size or UDim2.new(0, 580, 0, 460),
+        Position = UDim2.new(0.5, -290, 0.5, -230),
+        ImageColor3 = theme.WindowBackground,
+        ImageTransparency = 0,
         Active = true,
-        Parent = screenGui
+        Parent = self.ScreenGui
     })
     
     -- 頂部欄
     window.Topbar = CustomUI.new("Frame", {
         Name = "Topbar",
         Size = UDim2.new(1, 0, 0, 45),
-        BackgroundColor3 = theme.Surface,
-        BorderSizePixel = 0,
+        BackgroundTransparency = 1,
         Parent = window.Frame
-    }, {
-        CustomUI.new("UICorner", {
-            CornerRadius = UDim.new(0, 16)
-        }),
-        CustomUI.new("Frame", {
-            Size = UDim2.new(1, 0, 0, 1),
-            Position = UDim2.new(0, 0, 1, -1),
-            BackgroundColor3 = theme.Border,
-            BorderSizePixel = 0
-        })
     })
     
-    -- 窗口標題
+    -- 窗口標題（WindUI 風格）
     window.Title = CustomUI.new("TextLabel", {
         Name = "Title",
         Size = UDim2.new(0, 200, 1, 0),
         Position = UDim2.new(0, 16, 0, 0),
         BackgroundTransparency = 1,
-        Text = config.Title or "Custom UI",
-        TextColor3 = theme.Text,
-        TextSize = 18,
+        Text = config.Title or "WindUI",
+        TextColor3 = theme.WindowTopbarTitle,
+        TextSize = 16,
         Font = Enum.Font.GothamSemibold,
         TextXAlignment = "Left",
         Parent = window.Topbar
     })
     
-    -- 關閉按鈕
+    -- 作者（WindUI 風格）
+    if config.Author then
+        window.Author = CustomUI.new("TextLabel", {
+            Name = "Author",
+            Size = UDim2.new(0, 100, 1, 0),
+            Position = UDim2.new(0, 200, 0, 0),
+            BackgroundTransparency = 1,
+            Text = config.Author,
+            TextColor3 = theme.WindowTopbarIcon,
+            TextSize = 13,
+            Font = Enum.Font.Gotham,
+            TextXAlignment = "Left",
+            Parent = window.Topbar
+        })
+    end
+    
+    -- 關閉按鈕（WindUI 風格）
     window.CloseBtn = CustomUI.new("TextButton", {
         Size = UDim2.new(0, 30, 0, 30),
         Position = UDim2.new(1, -40, 0.5, -15),
-        BackgroundColor3 = theme.Danger,
-        Text = "✕",
-        TextColor3 = theme.Text,
-        TextSize = 18,
-        Font = Enum.Font.GothamBold,
+        BackgroundTransparency = 1,
+        Text = "",
         Parent = window.Topbar
-    }, {
-        CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 8) })
+    })
+    
+    local closeIcon = CustomUI.new("ImageLabel", {
+        Size = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new(0.5, -8, 0.5, -8),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://6031090990",
+        ImageColor3 = theme.WindowTopbarIcon,
+        Parent = window.CloseBtn
     })
     
     window.CloseBtn.MouseButton1Click:Connect(function()
-        screenGui:Destroy()
+        self.ScreenGui:Destroy()
     end)
     
-    -- 左側邊欄（標籤頁）
+    -- 左側邊欄（標籤頁區域 - WindUI 風格）
     window.Sidebar = CustomUI.new("Frame", {
         Name = "Sidebar",
         Size = UDim2.new(0, 160, 1, -45),
         Position = UDim2.new(0, 0, 0, 45),
-        BackgroundColor3 = theme.Surface,
-        BorderSizePixel = 0,
+        BackgroundTransparency = 1,
         Parent = window.Frame
-    }, {
-        CustomUI.new("UICorner", {
-            CornerRadius = UDim.new(0, 16)
-        }),
-        CustomUI.new("Frame", {
-            Size = UDim2.new(0, 1, 1, -32),
-            Position = UDim2.new(1, -1, 0, 16),
-            BackgroundColor3 = theme.Border,
-            BorderSizePixel = 0
-        })
     })
     
-    -- 側邊欄標籤頁容器
+    -- 標籤頁列表
     window.Tabs = {}
     window.Tabs.List = CustomUI.new("ScrollingFrame", {
         Name = "TabList",
         Size = UDim2.new(1, -16, 1, -16),
         Position = UDim2.new(0, 8, 0, 8),
         BackgroundTransparency = 1,
-        ScrollBarThickness = 4,
+        ScrollBarThickness = 0,
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = "Y",
         Parent = window.Sidebar
@@ -287,12 +795,9 @@ function CustomUI:CreateWindow(config)
         Parent = window.Frame
     })
     
-    -- 標籤頁容器
-    window.TabContent = {}
-    window.CurrentTab = nil
     window.TabButtons = {}
     
-    -- 添加標籤頁
+    -- 添加標籤頁（完全複製 WindUI 風格）
     function window:AddTab(tabConfig)
         tabConfig = tabConfig or {}
         
@@ -302,27 +807,30 @@ function CustomUI:CreateWindow(config)
         tab.Index = #self.TabButtons + 1
         tab.Elements = {}
         
-        -- 創建標籤按鈕
+        -- WindUI 風格的標籤按鈕
         local button = CustomUI.new("TextButton", {
             Name = "Tab_" .. tab.Name,
-            Size = UDim2.new(1, -8, 0, 36),
-            Position = UDim2.new(0, 4, 0, 0),
-            BackgroundColor3 = theme.Surface,
-            AutoButtonColor = false,
+            Size = UDim2.new(1, 0, 0, 36),
+            BackgroundTransparency = 1,
             Text = "",
             Parent = self.Tabs.List
-        }, {
-            CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 8) })
         })
         
-        -- 標籤圖標（如果有）
+        local buttonBg = CustomUI.newRoundFrame(8, "Squircle", {
+            Size = UDim2.new(1, 0, 1, 0),
+            ImageColor3 = theme.TabBackground,
+            ImageTransparency = 0.9,
+            Parent = button
+        })
+        
+        -- 圖標
         if tab.Icon then
             local icon = CustomUI.new("ImageLabel", {
                 Size = UDim2.new(0, 18, 0, 18),
                 Position = UDim2.new(0, 10, 0.5, -9),
                 BackgroundTransparency = 1,
                 Image = tab.Icon,
-                ImageColor3 = theme.TextSecondary,
+                ImageColor3 = theme.TabIcon,
                 Parent = button
             })
             tab.IconObj = icon
@@ -334,21 +842,21 @@ function CustomUI:CreateWindow(config)
             Position = UDim2.new(0, tab.Icon and 36 or 8, 0, 0),
             BackgroundTransparency = 1,
             Text = tab.Name,
-            TextColor3 = theme.TextSecondary,
+            TextColor3 = theme.TabTitle,
             TextSize = 15,
             Font = Enum.Font.Gotham,
             TextXAlignment = "Left",
             Parent = button
         })
         
-        -- 創建標籤內容框架
+        -- 標籤內容框架
         local content = CustomUI.new("ScrollingFrame", {
             Name = "TabContent_" .. tab.Name,
-            Size = UDim2.new(1, -32, 1, -32),
-            Position = UDim2.new(0, 16, 0, 16),
+            Size = UDim2.new(1, -24, 1, -24),
+            Position = UDim2.new(0, 12, 0, 12),
             BackgroundTransparency = 1,
             Visible = false,
-            ScrollBarThickness = 6,
+            ScrollBarThickness = 0,
             CanvasSize = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize = "Y",
             Parent = self.Content
@@ -356,10 +864,6 @@ function CustomUI:CreateWindow(config)
             CustomUI.new("UIListLayout", {
                 Padding = UDim.new(0, 8),
                 SortOrder = "LayoutOrder"
-            }),
-            CustomUI.new("UIPadding", {
-                PaddingTop = UDim.new(0, 8),
-                PaddingBottom = UDim.new(0, 8)
             })
         })
         
@@ -369,18 +873,16 @@ function CustomUI:CreateWindow(config)
         
         -- 按鈕點擊事件
         button.MouseButton1Click:Connect(function()
-            -- 取消選中所有標籤
             for _, btn in pairs(self.TabButtons) do
-                btn.Button.BackgroundColor3 = theme.Surface
-                btn.Label.TextColor3 = theme.TextSecondary
+                btn.Button.BackgroundTransparency = 1
+                btn.Label.TextColor3 = theme.TabTitle
                 if btn.IconObj then
-                    btn.IconObj.ImageColor3 = theme.TextSecondary
+                    btn.IconObj.ImageColor3 = theme.TabIcon
                 end
                 btn.Content.Visible = false
             end
             
-            -- 選中當前標籤
-            button.BackgroundColor3 = theme.Primary
+            buttonBg.ImageTransparency = 0
             label.TextColor3 = theme.Text
             if tab.IconObj then
                 tab.IconObj.ImageColor3 = theme.Text
@@ -389,11 +891,23 @@ function CustomUI:CreateWindow(config)
             self.CurrentTab = tab
         end)
         
+        button.MouseEnter:Connect(function()
+            if self.CurrentTab ~= tab then
+                buttonBg.ImageTransparency = 0.95
+            end
+        end)
+        
+        button.MouseLeave:Connect(function()
+            if self.CurrentTab ~= tab then
+                buttonBg.ImageTransparency = 0.9
+            end
+        end)
+        
         table.insert(self.TabButtons, tab)
         
-        -- 如果是第一個標籤，自動選中
+        -- 自動選中第一個
         if #self.TabButtons == 1 then
-            button.BackgroundColor3 = theme.Primary
+            buttonBg.ImageTransparency = 0
             label.TextColor3 = theme.Text
             if tab.IconObj then
                 tab.IconObj.ImageColor3 = theme.Text
@@ -402,459 +916,27 @@ function CustomUI:CreateWindow(config)
             self.CurrentTab = tab
         end
         
-        -- 添加元素的方法
+        -- 添加元素的方法（使用 WindUI 風格）
         function tab:AddElement(elementType, config)
             config = config or {}
+            config.Parent = content
             
             local element
-            
             if elementType == "Button" then
-                -- 按鈕元素
-                element = CustomUI.new("TextButton", {
-                    Size = UDim2.new(1, 0, 0, 40),
-                    BackgroundColor3 = theme.Primary,
-                    AutoButtonColor = false,
-                    Text = "",
-                    Parent = content
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 8) }),
-                    CustomUI.new("TextLabel", {
-                        Size = UDim2.new(1, -32, 1, 0),
-                        Position = UDim2.new(0, 16, 0, 0),
-                        BackgroundTransparency = 1,
-                        Text = config.Title or "Button",
-                        TextColor3 = theme.Text,
-                        TextSize = 16,
-                        Font = Enum.Font.Gotham,
-                        TextXAlignment = "Left"
-                    })
-                })
-                
-                element.MouseButton1Click:Connect(function()
-                    if config.Callback then
-                        config.Callback()
-                    end
-                end)
-                
+                element = CustomUI:CreateButton(config)
             elseif elementType == "Toggle" then
-                -- 切換開關元素
-                local value = config.Value or false
-                
-                element = CustomUI.new("Frame", {
-                    Size = UDim2.new(1, 0, 0, 40),
-                    BackgroundTransparency = 1,
-                    Parent = content
-                })
-                
-                -- 標題
-                local title = CustomUI.new("TextLabel", {
-                    Size = UDim2.new(1, -60, 1, 0),
-                    Position = UDim2.new(0, 16, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = config.Title or "Toggle",
-                    TextColor3 = theme.Text,
-                    TextSize = 16,
-                    Font = Enum.Font.Gotham,
-                    TextXAlignment = "Left",
-                    Parent = element
-                })
-                
-                -- 開關按鈕
-                local toggle = CustomUI.new("Frame", {
-                    Size = UDim2.new(0, 44, 0, 24),
-                    Position = UDim2.new(1, -60, 0.5, -12),
-                    BackgroundColor3 = value and theme.Success or theme.Border,
-                    Parent = element
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
-                })
-                
-                local knob = CustomUI.new("Frame", {
-                    Size = UDim2.new(0, 20, 0, 20),
-                    Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10),
-                    BackgroundColor3 = theme.Text,
-                    Parent = toggle
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
-                })
-                
-                local button = CustomUI.new("TextButton", {
-                    Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1,
-                    Text = "",
-                    Parent = toggle
-                })
-                
-                button.MouseButton1Click:Connect(function()
-                    value = not value
-                    
-                    toggle.BackgroundColor3 = value and theme.Success or theme.Border
-                    tween(knob, 0.2, {
-                        Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10)
-                    }):Play()
-                    
-                    if config.Callback then
-                        config.Callback(value)
-                    end
-                end)
-                
-                element.Set = function(_, newValue)
-                    value = newValue
-                    toggle.BackgroundColor3 = value and theme.Success or theme.Border
-                    knob.Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10)
-                end
-                
+                element = CustomUI:CreateToggle(config)
             elseif elementType == "Slider" then
-                -- 滑塊元素
-                local min = config.Min or 0
-                local max = config.Max or 100
-                local defaultValue = config.Default or min
-                local value = defaultValue
-                
-                element = CustomUI.new("Frame", {
-                    Size = UDim2.new(1, 0, 0, 50),
-                    BackgroundTransparency = 1,
-                    Parent = content
-                })
-                
-                -- 標題
-                local title = CustomUI.new("TextLabel", {
-                    Size = UDim2.new(1, -80, 0, 20),
-                    Position = UDim2.new(0, 16, 0, 4),
-                    BackgroundTransparency = 1,
-                    Text = config.Title or "Slider",
-                    TextColor3 = theme.Text,
-                    TextSize = 16,
-                    Font = Enum.Font.Gotham,
-                    TextXAlignment = "Left",
-                    Parent = element
-                })
-                
-                -- 數值顯示
-                local valueLabel = CustomUI.new("TextLabel", {
-                    Size = UDim2.new(0, 60, 0, 20),
-                    Position = UDim2.new(1, -76, 0, 4),
-                    BackgroundTransparency = 1,
-                    Text = tostring(defaultValue),
-                    TextColor3 = theme.Primary,
-                    TextSize = 14,
-                    Font = Enum.Font.GothamBold,
-                    Parent = element
-                })
-                
-                -- 滑塊軌道
-                local track = CustomUI.new("Frame", {
-                    Size = UDim2.new(1, -32, 0, 4),
-                    Position = UDim2.new(0, 16, 0, 34),
-                    BackgroundColor3 = theme.Border,
-                    Parent = element
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
-                })
-                
-                -- 滑塊填充
-                local fill = CustomUI.new("Frame", {
-                    Size = UDim2.new((value - min) / (max - min), 0, 1, 0),
-                    BackgroundColor3 = theme.Primary,
-                    Parent = track
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
-                })
-                
-                -- 滑塊手柄
-                local knob = CustomUI.new("Frame", {
-                    Size = UDim2.new(0, 16, 0, 16),
-                    Position = UDim2.new((value - min) / (max - min), -8, 0.5, -8),
-                    BackgroundColor3 = theme.Text,
-                    Parent = track
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
-                })
-                
-                local dragging = false
-                
-                knob.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        dragging = true
-                    end
-                end)
-                
-                RunService.RenderStepped:Connect(function()
-                    if dragging then
-                        local pos = UserInputService:GetMouseLocation()
-                        local trackPos = track.AbsolutePosition
-                        local trackSize = track.AbsoluteSize
-                        
-                        local percent = math.clamp((pos.X - trackPos.X) / trackSize.X, 0, 1)
-                        value = min + (max - min) * percent
-                        if config.Step then
-                            value = math.floor(value / config.Step + 0.5) * config.Step
-                            percent = (value - min) / (max - min)
-                        end
-                        
-                        fill.Size = UDim2.new(percent, 0, 1, 0)
-                        knob.Position = UDim2.new(percent, -8, 0.5, -8)
-                        valueLabel.Text = tostring(math.floor(value * 100) / 100)
-                        
-                        if config.Callback then
-                            config.Callback(value)
-                        end
-                    end
-                end)
-                
-                UserInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        dragging = false
-                    end
-                end)
-                
-                element.Set = function(_, newValue)
-                    value = newValue
-                    local percent = (value - min) / (max - min)
-                    fill.Size = UDim2.new(percent, 0, 1, 0)
-                    knob.Position = UDim2.new(percent, -8, 0.5, -8)
-                    valueLabel.Text = tostring(math.floor(value * 100) / 100)
-                end
-                
-            elseif elementType == "Dropdown" then
-                -- 下拉選單
-                local values = config.Values or {}
-                local value = config.Value or (values[1] or "")
-                
-                element = CustomUI.new("Frame", {
-                    Size = UDim2.new(1, 0, 0, 40),
-                    BackgroundTransparency = 1,
-                    Parent = content
-                })
-                
-                -- 標題
-                local title = CustomUI.new("TextLabel", {
-                    Size = UDim2.new(1, -120, 1, 0),
-                    Position = UDim2.new(0, 16, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = config.Title or "Dropdown",
-                    TextColor3 = theme.Text,
-                    TextSize = 16,
-                    Font = Enum.Font.Gotham,
-                    TextXAlignment = "Left",
-                    Parent = element
-                })
-                
-                -- 下拉框
-                local box = CustomUI.new("TextButton", {
-                    Size = UDim2.new(0, 100, 0, 32),
-                    Position = UDim2.new(1, -116, 0.5, -16),
-                    BackgroundColor3 = theme.Surface,
-                    AutoButtonColor = false,
-                    Text = "",
-                    Parent = element
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 6) })
-                })
-                
-                -- 選中值
-                local selectedLabel = CustomUI.new("TextLabel", {
-                    Size = UDim2.new(1, -20, 1, 0),
-                    Position = UDim2.new(0, 8, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = value,
-                    TextColor3 = theme.Text,
-                    TextSize = 14,
-                    Font = Enum.Font.Gotham,
-                    TextXAlignment = "Left",
-                    Parent = box
-                })
-                
-                -- 箭頭圖標
-                local arrow = CustomUI.new("ImageLabel", {
-                    Size = UDim2.new(0, 16, 0, 16),
-                    Position = UDim2.new(1, -20, 0.5, -8),
-                    BackgroundTransparency = 1,
-                    Image = "rbxassetid://6031090990",
-                    ImageColor3 = theme.TextSecondary,
-                    Parent = box
-                })
-                
-                -- 下拉菜單
-                local menu = CustomUI.new("Frame", {
-                    Size = UDim2.new(0, 100, 0, 0),
-                    Position = UDim2.new(1, -116, 1, 4),
-                    BackgroundColor3 = theme.Surface,
-                    Visible = false,
-                    ClipsDescendants = true,
-                    Parent = element,
-                    ZIndex = 10
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 6) }),
-                    CustomUI.new("UIListLayout", {
-                        Padding = UDim.new(0, 2),
-                        SortOrder = "LayoutOrder"
-                    }),
-                    CustomUI.new("UIPadding", {
-                        PaddingTop = UDim.new(0, 4),
-                        PaddingBottom = UDim.new(0, 4)
-                    })
-                })
-                
-                -- 創建選項
-                local optionButtons = {}
-                local function refreshOptions(newValues)
-                    -- 清除舊選項
-                    for _, btn in pairs(optionButtons) do
-                        btn:Destroy()
-                    end
-                    optionButtons = {}
-                    
-                    -- 添加新選項
-                    for _, val in ipairs(newValues) do
-                        local option = CustomUI.new("TextButton", {
-                            Size = UDim2.new(1, -8, 0, 30),
-                            Position = UDim2.new(0, 4, 0, 0),
-                            BackgroundTransparency = 1,
-                            Text = "",
-                            Parent = menu,
-                            ZIndex = 11
-                        })
-                        
-                        local optionLabel = CustomUI.new("TextLabel", {
-                            Size = UDim2.new(1, -8, 1, 0),
-                            Position = UDim2.new(0, 4, 0, 0),
-                            BackgroundTransparency = 1,
-                            Text = val,
-                            TextColor3 = theme.TextSecondary,
-                            TextSize = 14,
-                            Font = Enum.Font.Gotham,
-                            TextXAlignment = "Left",
-                            Parent = option,
-                            ZIndex = 11
-                        })
-                        
-                        option.MouseEnter:Connect(function()
-                            option.BackgroundColor3 = theme.Primary
-                            optionLabel.TextColor3 = theme.Text
-                        end)
-                        
-                        option.MouseLeave:Connect(function()
-                            option.BackgroundColor3 = Color3.new(1, 1, 1)
-                            option.BackgroundTransparency = 1
-                            optionLabel.TextColor3 = theme.TextSecondary
-                        end)
-                        
-                        option.MouseButton1Click:Connect(function()
-                            value = val
-                            selectedLabel.Text = value
-                            menu.Visible = false
-                            
-                            if config.Callback then
-                                config.Callback(value)
-                            end
-                        end)
-                        
-                        table.insert(optionButtons, option)
-                    end
-                    
-                    menu.Size = UDim2.new(0, 100, 0, #newValues * 32 + 8)
-                end
-                
-                refreshOptions(values)
-                
-                box.MouseButton1Click:Connect(function()
-                    menu.Visible = not menu.Visible
-                end)
-                
-                -- 點擊其他地方關閉菜單
-                UserInputService.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        local pos = UserInputService:GetMouseLocation()
-                        local boxPos = box.AbsolutePosition
-                        local boxSize = box.AbsoluteSize
-                        local menuPos = menu.AbsolutePosition
-                        local menuSize = menu.AbsoluteSize
-                        
-                        local inBox = pos.X >= boxPos.X and pos.X <= boxPos.X + boxSize.X and
-                                     pos.Y >= boxPos.Y and pos.Y <= boxPos.Y + boxSize.Y
-                        local inMenu = menu.Visible and 
-                                     pos.X >= menuPos.X and pos.X <= menuPos.X + menuSize.X and
-                                     pos.Y >= menuPos.Y and pos.Y <= menuPos.Y + menuSize.Y
-                        
-                        if not inBox and not inMenu then
-                            menu.Visible = false
-                        end
-                    end
-                end)
-                
-                element.Set = function(_, newValue)
-                    value = newValue
-                    selectedLabel.Text = value
-                end
-                
-                element.Refresh = function(_, newValues)
-                    refreshOptions(newValues)
-                end
-                
+                element = CustomUI:CreateSlider(config)
             elseif elementType == "Input" then
-                -- 輸入框
-                element = CustomUI.new("Frame", {
-                    Size = UDim2.new(1, 0, 0, 40),
-                    BackgroundTransparency = 1,
-                    Parent = content
-                })
-                
-                -- 標題
-                local title = CustomUI.new("TextLabel", {
-                    Size = UDim2.new(1, -120, 1, 0),
-                    Position = UDim2.new(0, 16, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = config.Title or "Input",
-                    TextColor3 = theme.Text,
-                    TextSize = 16,
-                    Font = Enum.Font.Gotham,
-                    TextXAlignment = "Left",
-                    Parent = element
-                })
-                
-                -- 輸入框
-                local input = CustomUI.new("TextBox", {
-                    Size = UDim2.new(0, 120, 0, 32),
-                    Position = UDim2.new(1, -136, 0.5, -16),
-                    BackgroundColor3 = theme.Surface,
-                    Text = config.Default or "",
-                    PlaceholderText = config.Placeholder or "輸入...",
-                    TextColor3 = theme.Text,
-                    PlaceholderColor3 = theme.TextSecondary,
-                    TextSize = 14,
-                    Font = Enum.Font.Gotham,
-                    ClearTextOnFocus = false,
-                    Parent = element
-                }, {
-                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 6) })
-                })
-                
-                input.FocusLost:Connect(function(enterPressed)
-                    if config.Callback then
-                        config.Callback(input.Text)
-                    end
-                end)
-                
-                element.Set = function(_, newValue)
-                    input.Text = newValue
-                end
-                
-            elseif elementType == "Label" then
-                -- 純文字標籤
-                element = CustomUI.new("TextLabel", {
-                    Size = UDim2.new(1, 0, 0, 20),
-                    BackgroundTransparency = 1,
-                    Text = config.Text or "",
-                    TextColor3 = config.Color or theme.TextSecondary,
-                    TextSize = config.TextSize or 14,
-                    Font = config.Font or Enum.Font.Gotham,
-                    TextXAlignment = config.Align or "Left",
-                    Parent = content
-                })
+                element = CustomUI:CreateInput(config)
+            elseif elementType == "Dropdown" then
+                element = CustomUI:CreateDropdown(config)
+            elseif elementType == "Paragraph" or elementType == "Label" then
+                element = CustomUI:CreateParagraph(config)
             end
             
-            table.insert(self.Elements, element)
+            table.insert(tab.Elements, element)
             return element
         end
         
@@ -888,13 +970,7 @@ function CustomUI:CreateWindow(config)
         end
     end)
     
-    -- 關閉功能
-    function window:Destroy()
-        screenGui:Destroy()
-    end
-    
     return window
 end
 
--- 返回 UI 庫
 return CustomUI
