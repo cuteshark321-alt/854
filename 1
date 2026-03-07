@@ -1,764 +1,796 @@
-repeat
-	task.wait()
-until game:IsLoaded()
-local library = {}
-local ToggleUI = false
-library.currentTab = nil
-library.flags = {}
-local services = setmetatable({}, {
-	__index = function(t, k)
-		return game.GetService(game, k)
-	end,
-})
-local mouse = services.Players.LocalPlayer:GetMouse()
-local userInputService = services.UserInputService
-local tweenService = services.TweenService
+-- 自定義 UI 庫（替代 WindUI）
+local CustomUI = {}
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
--- Wind UI 風格顏色
-local colors = {
-	Background = Color3.fromRGB(20, 20, 25),        -- 深色背景
-	Surface = Color3.fromRGB(30, 30, 35),           -- 表面顏色
-	Primary = Color3.fromRGB(100, 150, 255),        -- 主色調（柔和藍）
-	PrimaryLight = Color3.fromRGB(120, 170, 255),   -- 主色調亮色
-	Text = Color3.fromRGB(240, 240, 245),           -- 文字顏色
-	TextSecondary = Color3.fromRGB(160, 160, 170),  -- 次要文字
-	Border = Color3.fromRGB(50, 50, 60),            -- 邊框顏色
-	Success = Color3.fromRGB(80, 200, 120),         -- 成功色
-	Warning = Color3.fromRGB(255, 180, 80),         -- 警告色
-	Danger = Color3.fromRGB(255, 100, 100),         -- 危險色
+-- 工具函數
+local function tween(obj, time, props)
+    return TweenService:Create(obj, TweenInfo.new(time), props)
+end
+
+-- 主題顏色
+CustomUI.Themes = {
+    Dark = {
+        Background = Color3.fromRGB(20, 20, 25),
+        Surface = Color3.fromRGB(30, 30, 35),
+        Primary = Color3.fromRGB(0, 145, 255),
+        Text = Color3.fromRGB(255, 255, 255),
+        TextSecondary = Color3.fromRGB(150, 150, 150),
+        Border = Color3.fromRGB(50, 50, 55),
+        Success = Color3.fromRGB(40, 200, 100),
+        Danger = Color3.fromRGB(255, 70, 70),
+        Warning = Color3.fromRGB(255, 170, 0)
+    },
+    Light = {
+        Background = Color3.fromRGB(240, 240, 245),
+        Surface = Color3.fromRGB(255, 255, 255),
+        Primary = Color3.fromRGB(0, 120, 255),
+        Text = Color3.fromRGB(20, 20, 25),
+        TextSecondary = Color3.fromRGB(100, 100, 110),
+        Border = Color3.fromRGB(200, 200, 210),
+        Success = Color3.fromRGB(0, 180, 80),
+        Danger = Color3.fromRGB(220, 50, 50),
+        Warning = Color3.fromRGB(240, 150, 0)
+    }
 }
 
--- 現代化補間函數
-function Tween(obj, t, data, style)
-	style = style or { Style = "Quart", Direction = "Out" }
-	tweenService:Create(
-		obj,
-		TweenInfo.new(t, Enum.EasingStyle[style.Style], Enum.EasingDirection[style.Direction]),
-		data
-	):Play()
+-- 創建 UI 元素
+function CustomUI.new(class, props, children)
+    local obj = Instance.new(class)
+    
+    -- 應用屬性
+    for k, v in pairs(props or {}) do
+        pcall(function()
+            obj[k] = v
+        end)
+    end
+    
+    -- 添加子元素
+    for _, child in pairs(children or {}) do
+        if child then
+            child.Parent = obj
+        end
+    end
+    
+    return obj
 end
 
--- 毛玻璃效果函數
-function createBlur(parent, size)
-	local blur = Instance.new("Frame")
-	blur.Name = "BlurEffect"
-	blur.Parent = parent
-	blur.BackgroundColor3 = colors.Surface
-	blur.BackgroundTransparency = 0.3
-	blur.BorderSizePixel = 0
-	blur.Size = size or UDim2.new(1, 0, 1, 0)
-	
-	local gradient = Instance.new("UIGradient")
-	gradient.Parent = blur
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, colors.Surface),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(40, 40, 45)),
-		ColorSequenceKeypoint.new(1, colors.Surface),
-	})
-	gradient.Rotation = 45
-	
-	return blur
+-- 創建帶圓角的框架
+function CustomUI.newRoundFrame(radius, style, props, children)
+    local frame = CustomUI.new("ImageLabel", {
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://3570695787",
+        ScaleType = "Slice",
+        SliceCenter = Rect.new(radius, radius, radius, radius),
+        SliceScale = 1,
+    }, {
+        CustomUI.new("UICorner", {
+            CornerRadius = UDim.new(0, radius)
+        })
+    })
+    
+    for k, v in pairs(props or {}) do
+        pcall(function()
+            frame[k] = v
+        end)
+    end
+    
+    for _, child in pairs(children or {}) do
+        child.Parent = frame
+    end
+    
+    return frame
 end
 
--- 現代化波紋效果
-function Ripple(obj)
-	spawn(function()
-		if obj.ClipsDescendants ~= true then
-			obj.ClipsDescendants = true
-		end
-		local Ripple = Instance.new("ImageLabel")
-		Ripple.Name = "Ripple"
-		Ripple.Parent = obj
-		Ripple.BackgroundTransparency = 1
-		Ripple.ZIndex = 8
-		Ripple.Image = "rbxassetid://2708891598"
-		Ripple.ImageTransparency = 0.7
-		Ripple.ImageColor3 = colors.PrimaryLight
-		Ripple.Position = UDim2.new(
-			(mouse.X - Ripple.AbsolutePosition.X) / obj.AbsoluteSize.X,
-			0,
-			(mouse.Y - Ripple.AbsolutePosition.Y) / obj.AbsoluteSize.Y,
-			0
-		)
-		Ripple.Size = UDim2.new(0, 0, 0, 0)
-		
-		Tween(Ripple, 0.4, {
-			Position = UDim2.new(-2, 0, -2, 0),
-			Size = UDim2.new(5, 0, 5, 0),
-			ImageTransparency = 1
-		}, { Style = "Exponential", Direction = "Out" })
-		
-		task.wait(0.4)
-		Ripple:Destroy()
-	end)
+-- 創建主窗口
+function CustomUI:CreateWindow(config)
+    config = config or {}
+    
+    -- 主題設置
+    local theme = self.Themes[config.Theme or "Dark"]
+    local window = {}
+    
+    -- 創建主 GUI
+    local screenGui = CustomUI.new("ScreenGui", {
+        Name = "CustomUI",
+        ResetOnSpawn = false,
+        ZIndexBehavior = "Sibling",
+        Parent = game:GetService("CoreGui")
+    })
+    
+    -- 主窗口框架
+    window.Frame = CustomUI.newRoundFrame(16, "Squircle", {
+        Name = "Window",
+        Size = config.Size or UDim2.new(0, 600, 0, 500),
+        Position = UDim2.new(0.5, -300, 0.5, -250),
+        BackgroundColor3 = theme.Background,
+        Active = true,
+        Parent = screenGui
+    })
+    
+    -- 頂部欄
+    window.Topbar = CustomUI.new("Frame", {
+        Name = "Topbar",
+        Size = UDim2.new(1, 0, 0, 45),
+        BackgroundColor3 = theme.Surface,
+        BorderSizePixel = 0,
+        Parent = window.Frame
+    }, {
+        CustomUI.new("UICorner", {
+            CornerRadius = UDim.new(0, 16)
+        }),
+        CustomUI.new("Frame", {
+            Size = UDim2.new(1, 0, 0, 1),
+            Position = UDim2.new(0, 0, 1, -1),
+            BackgroundColor3 = theme.Border,
+            BorderSizePixel = 0,
+            Parent = window.Topbar
+        })
+    })
+    
+    -- 窗口標題
+    window.Title = CustomUI.new("TextLabel", {
+        Name = "Title",
+        Size = UDim2.new(0, 200, 1, 0),
+        Position = UDim2.new(0, 16, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Title or "Custom UI",
+        TextColor3 = theme.Text,
+        TextSize = 18,
+        Font = Enum.Font.GothamSemibold,
+        TextXAlignment = "Left",
+        Parent = window.Topbar
+    })
+    
+    -- 左側邊欄（標籤頁）
+    window.Sidebar = CustomUI.new("Frame", {
+        Name = "Sidebar",
+        Size = UDim2.new(0, 160, 1, -45),
+        Position = UDim2.new(0, 0, 0, 45),
+        BackgroundColor3 = theme.Surface,
+        BorderSizePixel = 0,
+        Parent = window.Frame
+    }, {
+        CustomUI.new("UICorner", {
+            CornerRadius = UDim.new(0, 16)
+        }),
+        CustomUI.new("Frame", {
+            Size = UDim2.new(0, 1, 1, -32),
+            Position = UDim2.new(1, -1, 0, 16),
+            BackgroundColor3 = theme.Border,
+            BorderSizePixel = 0
+        })
+    })
+    
+    -- 側邊欄標籤頁容器
+    window.Tabs = {}
+    window.Tabs.List = CustomUI.new("ScrollingFrame", {
+        Name = "TabList",
+        Size = UDim2.new(1, -16, 1, -16),
+        Position = UDim2.new(0, 8, 0, 8),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 4,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = "Y",
+        Parent = window.Sidebar
+    }, {
+        CustomUI.new("UIListLayout", {
+            Padding = UDim.new(0, 4),
+            SortOrder = "LayoutOrder"
+        })
+    })
+    
+    -- 主要內容區域
+    window.Content = CustomUI.new("Frame", {
+        Name = "Content",
+        Size = UDim2.new(1, -160, 1, -45),
+        Position = UDim2.new(0, 160, 0, 45),
+        BackgroundTransparency = 1,
+        Parent = window.Frame
+    })
+    
+    -- 標籤頁容器
+    window.TabContent = {}
+    window.CurrentTab = nil
+    window.TabButtons = {}
+    
+    -- 添加標籤頁
+    function window:AddTab(tabConfig)
+        tabConfig = tabConfig or {}
+        
+        local tab = {}
+        tab.Name = tabConfig.Title or "Tab"
+        tab.Icon = tabConfig.Icon
+        tab.Index = #window.Tabs.Buttons + 1
+        tab.Elements = {}
+        
+        -- 創建標籤按鈕
+        local button = CustomUI.new("TextButton", {
+            Name = "Tab_" .. tab.Name,
+            Size = UDim2.new(1, -8, 0, 32),
+            Position = UDim2.new(0, 4, 0, 0),
+            BackgroundColor3 = theme.Surface,
+            AutoButtonColor = false,
+            Text = "",
+            Parent = window.Tabs.List
+        }, {
+            CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 8) })
+        })
+        
+        -- 標籤圖標（如果有）
+        if tab.Icon then
+            local icon = CustomUI.new("ImageLabel", {
+                Size = UDim2.new(0, 18, 0, 18),
+                Position = UDim2.new(0, 8, 0.5, -9),
+                BackgroundTransparency = 1,
+                Image = tab.Icon,
+                ImageColor3 = theme.TextSecondary,
+                Parent = button
+            })
+            tab.IconObj = icon
+        end
+        
+        -- 標籤文字
+        local label = CustomUI.new("TextLabel", {
+            Size = UDim2.new(1, tab.Icon and -32 or -16, 1, 0),
+            Position = UDim2.new(0, tab.Icon and 32 or 8, 0, 0),
+            BackgroundTransparency = 1,
+            Text = tab.Name,
+            TextColor3 = theme.TextSecondary,
+            TextSize = 15,
+            Font = Enum.Font.Gotham,
+            TextXAlignment = "Left",
+            Parent = button
+        })
+        
+        -- 創建標籤內容框架
+        local content = CustomUI.new("ScrollingFrame", {
+            Name = "TabContent_" .. tab.Name,
+            Size = UDim2.new(1, -32, 1, -32),
+            Position = UDim2.new(0, 16, 0, 16),
+            BackgroundTransparency = 1,
+            Visible = false,
+            ScrollBarThickness = 6,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = "Y",
+            Parent = window.Content
+        }, {
+            CustomUI.new("UIListLayout", {
+                Padding = UDim.new(0, 8),
+                SortOrder = "LayoutOrder"
+            }),
+            CustomUI.new("UIPadding", {
+                PaddingTop = UDim.new(0, 8),
+                PaddingBottom = UDim.new(0, 8)
+            })
+        })
+        
+        tab.Content = content
+        tab.Button = button
+        tab.Label = label
+        
+        -- 按鈕點擊事件
+        button.MouseButton1Click:Connect(function()
+            -- 取消選中所有標籤
+            for _, btn in pairs(window.TabButtons) do
+                btn.Button.BackgroundColor3 = theme.Surface
+                btn.Label.TextColor3 = theme.TextSecondary
+                if btn.IconObj then
+                    btn.IconObj.ImageColor3 = theme.TextSecondary
+                end
+                btn.Content.Visible = false
+            end
+            
+            -- 選中當前標籤
+            button.BackgroundColor3 = theme.Primary
+            label.TextColor3 = theme.Text
+            if tab.IconObj then
+                tab.IconObj.ImageColor3 = theme.Text
+            end
+            content.Visible = true
+            window.CurrentTab = tab
+        end)
+        
+        table.insert(window.TabButtons, tab)
+        
+        -- 如果是第一個標籤，自動選中
+        if #window.TabButtons == 1 then
+            button.BackgroundColor3 = theme.Primary
+            label.TextColor3 = theme.Text
+            if tab.IconObj then
+                tab.IconObj.ImageColor3 = theme.Text
+            end
+            content.Visible = true
+            window.CurrentTab = tab
+        end
+        
+        -- 添加元素的方法
+        function tab:AddElement(elementType, config)
+            config = config or {}
+            
+            local element
+            
+            if elementType == "Button" then
+                -- 按鈕元素
+                element = CustomUI.new("TextButton", {
+                    Size = UDim2.new(1, 0, 0, 36),
+                    BackgroundColor3 = theme.Primary,
+                    AutoButtonColor = false,
+                    Text = "",
+                    Parent = content
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 8) }),
+                    CustomUI.new("TextLabel", {
+                        Size = UDim2.new(1, -32, 1, 0),
+                        Position = UDim2.new(0, 16, 0, 0),
+                        BackgroundTransparency = 1,
+                        Text = config.Title or "Button",
+                        TextColor3 = theme.Text,
+                        TextSize = 16,
+                        Font = Enum.Font.Gotham,
+                        TextXAlignment = "Left"
+                    })
+                })
+                
+                element.MouseButton1Click:Connect(function()
+                    if config.Callback then
+                        config.Callback()
+                    end
+                end)
+                
+            elseif elementType == "Toggle" then
+                -- 切換開關元素
+                local value = config.Value or false
+                
+                element = CustomUI.new("Frame", {
+                    Size = UDim2.new(1, 0, 0, 36),
+                    BackgroundTransparency = 1,
+                    Parent = content
+                })
+                
+                -- 標題
+                local title = CustomUI.new("TextLabel", {
+                    Size = UDim2.new(1, -60, 1, 0),
+                    Position = UDim2.new(0, 16, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = config.Title or "Toggle",
+                    TextColor3 = theme.Text,
+                    TextSize = 16,
+                    Font = Enum.Font.Gotham,
+                    TextXAlignment = "Left",
+                    Parent = element
+                })
+                
+                -- 開關按鈕
+                local toggle = CustomUI.new("Frame", {
+                    Size = UDim2.new(0, 44, 0, 24),
+                    Position = UDim2.new(1, -60, 0.5, -12),
+                    BackgroundColor3 = value and theme.Success or theme.Border,
+                    Parent = element
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+                })
+                
+                local knob = CustomUI.new("Frame", {
+                    Size = UDim2.new(0, 20, 0, 20),
+                    Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10),
+                    BackgroundColor3 = theme.Text,
+                    Parent = toggle
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+                })
+                
+                local button = CustomUI.new("TextButton", {
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    Parent = toggle
+                })
+                
+                button.MouseButton1Click:Connect(function()
+                    value = not value
+                    
+                    -- 動畫
+                    toggle.BackgroundColor3 = value and theme.Success or theme.Border
+                    tween(knob, 0.2, {
+                        Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10)
+                    }):Play()
+                    
+                    if config.Callback then
+                        config.Callback(value)
+                    end
+                end)
+                
+                element.Set = function(_, newValue)
+                    value = newValue
+                    toggle.BackgroundColor3 = value and theme.Success or theme.Border
+                    knob.Position = UDim2.new(value and 1 or 0, value and -22 or 2, 0.5, -10)
+                end
+                
+            elseif elementType == "Slider" then
+                -- 滑塊元素
+                local min = config.Min or 0
+                local max = config.Max or 100
+                local defaultValue = config.Default or min
+                
+                element = CustomUI.new("Frame", {
+                    Size = UDim2.new(1, 0, 0, 48),
+                    BackgroundTransparency = 1,
+                    Parent = content
+                })
+                
+                -- 標題
+                local title = CustomUI.new("TextLabel", {
+                    Size = UDim2.new(1, -80, 0, 20),
+                    Position = UDim2.new(0, 16, 0, 4),
+                    BackgroundTransparency = 1,
+                    Text = config.Title or "Slider",
+                    TextColor3 = theme.Text,
+                    TextSize = 16,
+                    Font = Enum.Font.Gotham,
+                    TextXAlignment = "Left",
+                    Parent = element
+                })
+                
+                -- 數值顯示
+                local valueLabel = CustomUI.new("TextLabel", {
+                    Size = UDim2.new(0, 60, 0, 20),
+                    Position = UDim2.new(1, -76, 0, 4),
+                    BackgroundTransparency = 1,
+                    Text = tostring(defaultValue),
+                    TextColor3 = theme.Primary,
+                    TextSize = 14,
+                    Font = Enum.Font.GothamBold,
+                    Parent = element
+                })
+                
+                -- 滑塊軌道
+                local track = CustomUI.new("Frame", {
+                    Size = UDim2.new(1, -32, 0, 4),
+                    Position = UDim2.new(0, 16, 0, 32),
+                    BackgroundColor3 = theme.Border,
+                    Parent = element
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+                })
+                
+                -- 滑塊填充
+                local fill = CustomUI.new("Frame", {
+                    Size = UDim2.new((defaultValue - min) / (max - min), 0, 1, 0),
+                    BackgroundColor3 = theme.Primary,
+                    Parent = track
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+                })
+                
+                -- 滑塊手柄
+                local knob = CustomUI.new("Frame", {
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = UDim2.new((defaultValue - min) / (max - min), -8, 0.5, -8),
+                    BackgroundColor3 = theme.Text,
+                    Parent = track
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(1, 0) })
+                })
+                
+                local dragging = false
+                
+                knob.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = true
+                    end
+                end)
+                
+                UserInputService.InputChanged:Connect(function(input)
+                    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                        local pos = UserInputService:GetMouseLocation()
+                        local trackPos = track.AbsolutePosition
+                        local trackSize = track.AbsoluteSize
+                        
+                        local percent = math.clamp((pos.X - trackPos.X) / trackSize.X, 0, 1)
+                        local value = min + (max - min) * percent
+                        value = math.floor(value / (config.Step or 1) + 0.5) * (config.Step or 1)
+                        
+                        fill.Size = UDim2.new(percent, 0, 1, 0)
+                        knob.Position = UDim2.new(percent, -8, 0.5, -8)
+                        valueLabel.Text = tostring(value)
+                        
+                        if config.Callback then
+                            config.Callback(value)
+                        end
+                    end
+                end)
+                
+                UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = false
+                    end
+                end)
+                
+                element.Set = function(_, newValue)
+                    local percent = (newValue - min) / (max - min)
+                    fill.Size = UDim2.new(percent, 0, 1, 0)
+                    knob.Position = UDim2.new(percent, -8, 0.5, -8)
+                    valueLabel.Text = tostring(newValue)
+                end
+                
+            elseif elementType == "Dropdown" then
+                -- 下拉選單
+                local values = config.Values or {}
+                local value = config.Value or (values[1] or "")
+                
+                element = CustomUI.new("Frame", {
+                    Size = UDim2.new(1, 0, 0, 36),
+                    BackgroundTransparency = 1,
+                    Parent = content
+                })
+                
+                -- 標題
+                local title = CustomUI.new("TextLabel", {
+                    Size = UDim2.new(1, -120, 1, 0),
+                    Position = UDim2.new(0, 16, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = config.Title or "Dropdown",
+                    TextColor3 = theme.Text,
+                    TextSize = 16,
+                    Font = Enum.Font.Gotham,
+                    TextXAlignment = "Left",
+                    Parent = element
+                })
+                
+                -- 下拉框
+                local box = CustomUI.new("TextButton", {
+                    Size = UDim2.new(0, 100, 0, 30),
+                    Position = UDim2.new(1, -116, 0.5, -15),
+                    BackgroundColor3 = theme.Surface,
+                    AutoButtonColor = false,
+                    Text = "",
+                    Parent = element
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 6) })
+                })
+                
+                -- 選中值
+                local selectedLabel = CustomUI.new("TextLabel", {
+                    Size = UDim2.new(1, -20, 1, 0),
+                    Position = UDim2.new(0, 8, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = value,
+                    TextColor3 = theme.Text,
+                    TextSize = 14,
+                    Font = Enum.Font.Gotham,
+                    TextXAlignment = "Left",
+                    Parent = box
+                })
+                
+                -- 箭頭圖標
+                local arrow = CustomUI.new("ImageLabel", {
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = UDim2.new(1, -20, 0.5, -8),
+                    BackgroundTransparency = 1,
+                    Image = "rbxassetid://6031090990",
+                    ImageColor3 = theme.TextSecondary,
+                    Parent = box
+                })
+                
+                -- 下拉菜單
+                local menu = CustomUI.new("Frame", {
+                    Size = UDim2.new(0, 100, 0, 0),
+                    Position = UDim2.new(1, -116, 1, 4),
+                    BackgroundColor3 = theme.Surface,
+                    Visible = false,
+                    ClipsDescendants = true,
+                    Parent = element
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 6) }),
+                    CustomUI.new("UIListLayout", {
+                        Padding = UDim.new(0, 2),
+                        SortOrder = "LayoutOrder"
+                    }),
+                    CustomUI.new("UIPadding", {
+                        PaddingTop = UDim.new(0, 4),
+                        PaddingBottom = UDim.new(0, 4)
+                    })
+                })
+                
+                -- 創建選項
+                for _, val in ipairs(values) do
+                    local option = CustomUI.new("TextButton", {
+                        Size = UDim2.new(1, -8, 0, 28),
+                        Position = UDim2.new(0, 4, 0, 0),
+                        BackgroundTransparency = 1,
+                        Text = "",
+                        Parent = menu
+                    })
+                    
+                    local optionLabel = CustomUI.new("TextLabel", {
+                        Size = UDim2.new(1, -8, 1, 0),
+                        Position = UDim2.new(0, 4, 0, 0),
+                        BackgroundTransparency = 1,
+                        Text = val,
+                        TextColor3 = theme.TextSecondary,
+                        TextSize = 14,
+                        Font = Enum.Font.Gotham,
+                        TextXAlignment = "Left",
+                        Parent = option
+                    })
+                    
+                    option.MouseEnter:Connect(function()
+                        option.BackgroundColor3 = theme.Primary
+                        optionLabel.TextColor3 = theme.Text
+                    end)
+                    
+                    option.MouseLeave:Connect(function()
+                        option.BackgroundColor3 = Color3.new(1, 1, 1)
+                        option.BackgroundTransparency = 1
+                        optionLabel.TextColor3 = theme.TextSecondary
+                    end)
+                    
+                    option.MouseButton1Click:Connect(function()
+                        value = val
+                        selectedLabel.Text = value
+                        menu.Visible = false
+                        
+                        if config.Callback then
+                            config.Callback(value)
+                        end
+                    end)
+                end
+                
+                box.MouseButton1Click:Connect(function()
+                    menu.Visible = not menu.Visible
+                    menu.Size = UDim2.new(0, 100, 0, #values * 30 + 8)
+                end)
+                
+                element.Set = function(_, newValue)
+                    value = newValue
+                    selectedLabel.Text = value
+                end
+                
+                element.Refresh = function(_, newValues)
+                    -- 清除舊選項
+                    for _, child in pairs(menu:GetChildren()) do
+                        if child:IsA("TextButton") then
+                            child:Destroy()
+                        end
+                    end
+                    
+                    -- 添加新選項
+                    for _, val in ipairs(newValues) do
+                        local option = CustomUI.new("TextButton", {
+                            Size = UDim2.new(1, -8, 0, 28),
+                            Position = UDim2.new(0, 4, 0, 0),
+                            BackgroundTransparency = 1,
+                            Text = "",
+                            Parent = menu
+                        })
+                        
+                        local optionLabel = CustomUI.new("TextLabel", {
+                            Size = UDim2.new(1, -8, 1, 0),
+                            Position = UDim2.new(0, 4, 0, 0),
+                            BackgroundTransparency = 1,
+                            Text = val,
+                            TextColor3 = theme.TextSecondary,
+                            TextSize = 14,
+                            Font = Enum.Font.Gotham,
+                            TextXAlignment = "Left",
+                            Parent = option
+                        })
+                        
+                        option.MouseEnter:Connect(function()
+                            option.BackgroundColor3 = theme.Primary
+                            optionLabel.TextColor3 = theme.Text
+                        end)
+                        
+                        option.MouseLeave:Connect(function()
+                            option.BackgroundColor3 = Color3.new(1, 1, 1)
+                            option.BackgroundTransparency = 1
+                            optionLabel.TextColor3 = theme.TextSecondary
+                        end)
+                        
+                        option.MouseButton1Click:Connect(function()
+                            value = val
+                            selectedLabel.Text = value
+                            menu.Visible = false
+                            
+                            if config.Callback then
+                                config.Callback(value)
+                            end
+                        end)
+                    end
+                end
+                
+            elseif elementType == "Input" then
+                -- 輸入框
+                element = CustomUI.new("Frame", {
+                    Size = UDim2.new(1, 0, 0, 36),
+                    BackgroundTransparency = 1,
+                    Parent = content
+                })
+                
+                -- 標題
+                local title = CustomUI.new("TextLabel", {
+                    Size = UDim2.new(1, -120, 1, 0),
+                    Position = UDim2.new(0, 16, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = config.Title or "Input",
+                    TextColor3 = theme.Text,
+                    TextSize = 16,
+                    Font = Enum.Font.Gotham,
+                    TextXAlignment = "Left",
+                    Parent = element
+                })
+                
+                -- 輸入框
+                local input = CustomUI.new("TextBox", {
+                    Size = UDim2.new(0, 100, 0, 30),
+                    Position = UDim2.new(1, -116, 0.5, -15),
+                    BackgroundColor3 = theme.Surface,
+                    Text = config.Placeholder or "",
+                    PlaceholderText = config.Placeholder or "輸入...",
+                    TextColor3 = theme.Text,
+                    PlaceholderColor3 = theme.TextSecondary,
+                    TextSize = 14,
+                    Font = Enum.Font.Gotham,
+                    ClearTextOnFocus = false,
+                    Parent = element
+                }, {
+                    CustomUI.new("UICorner", { CornerRadius = UDim.new(0, 6) })
+                })
+                
+                input.FocusLost:Connect(function(enterPressed)
+                    if config.Callback then
+                        config.Callback(input.Text)
+                    end
+                end)
+                
+                element.Set = function(_, newValue)
+                    input.Text = newValue
+                end
+            end
+            
+            table.insert(tab.Elements, element)
+            return element
+        end
+        
+        return tab
+    end
+    
+    -- 可拖拽
+    local dragging = false
+    local dragOffset = Vector2.new()
+    
+    window.Topbar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragOffset = Vector2.new(
+                input.Position.X - window.Frame.AbsolutePosition.X,
+                input.Position.Y - window.Frame.AbsolutePosition.Y
+            )
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local pos = UserInputService:GetMouseLocation()
+            window.Frame.Position = UDim2.new(0, pos.X - dragOffset.X, 0, pos.Y - dragOffset.Y)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    -- 關閉功能
+    function window:Destroy()
+        screenGui:Destroy()
+    end
+    
+    return window
 end
 
-local toggled = false
-local switchingTabs = false
-
-function switchTab(new)
-	if switchingTabs then return end
-	local old = library.currentTab
-	
-	if old == nil then
-		new[2].Visible = true
-		library.currentTab = new
-		Tween(new[1], 0.2, { ImageTransparency = 0 }, { Style = "Quart", Direction = "Out" })
-		Tween(new[1].TabText, 0.2, { TextTransparency = 0, TextColor3 = colors.Text }, { Style = "Quart", Direction = "Out" })
-		return
-	end
-	
-	if old[1] == new[1] then return end
-	
-	switchingTabs = true
-	library.currentTab = new
-	
-	Tween(old[1], 0.15, { ImageTransparency = 0.5 }, { Style = "Quart", Direction = "Out" })
-	Tween(new[1], 0.2, { ImageTransparency = 0 }, { Style = "Quart", Direction = "Out" })
-	Tween(old[1].TabText, 0.15, { TextTransparency = 0.5, TextColor3 = colors.TextSecondary }, { Style = "Quart", Direction = "Out" })
-	Tween(new[1].TabText, 0.2, { TextTransparency = 0, TextColor3 = colors.PrimaryLight }, { Style = "Quart", Direction = "Out" })
-	
-	old[2].Visible = false
-	new[2].Visible = true
-	
-	task.wait(0.15)
-	switchingTabs = false
-end
-
--- 現代化拖拽功能
-function drag(frame, hold)
-	if not hold then hold = frame end
-	
-	local dragging = false
-	local dragInput
-	local dragStart
-	local startPos
-	
-	local function update(input)
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-	end
-	
-	hold.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			dragStart = input.Position
-			startPos = frame.Position
-			
-			-- 輕微放大效果
-			Tween(frame, 0.15, { Size = UDim2.new(0, 575, 0, 356) }, { Style = "Back", Direction = "Out" })
-			
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-					Tween(frame, 0.2, { Size = UDim2.new(0, 572, 0, 353) }, { Style = "Back", Direction = "Out" })
-				end
-			end)
-		end
-	end)
-	
-	frame.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			dragInput = input
-		end
-	end)
-	
-	userInputService.InputChanged:Connect(function(input)
-		if input == dragInput and dragging then
-			update(input)
-		end
-	end)
-end
-
-function library.new(library, name, theme)
-	-- 清理舊的UI
-	for _, v in next, services.CoreGui:GetChildren() do
-		if v.Name == "WindUI" then
-			v:Destroy()
-		end
-	end
-	
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "WindUI"
-	gui.Parent = services.CoreGui
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	
-	if syn and syn.protect_gui then
-		syn.protect_gui(gui)
-	end
-	
-	-- 主窗口
-	local Main = Instance.new("Frame")
-	Main.Name = "Main"
-	Main.Parent = gui
-	Main.AnchorPoint = Vector2.new(0.5, 0.5)
-	Main.BackgroundColor3 = colors.Surface
-	Main.BackgroundTransparency = 0.15  -- 毛玻璃效果
-	Main.BorderSizePixel = 0
-	Main.Position = UDim2.new(0.5, 0, 0.5, 0)
-	Main.Size = UDim2.new(0, 572, 0, 353)
-	Main.ClipsDescendants = true
-	
-	-- 窗口陰影
-	local Shadow = Instance.new("ImageLabel")
-	Shadow.Name = "Shadow"
-	Shadow.Parent = Main
-	Shadow.BackgroundTransparency = 1
-	Shadow.Size = UDim2.new(1, 40, 1, 40)
-	Shadow.Position = UDim2.new(-0.035, 0, -0.035, 0)
-	Shadow.Image = "rbxassetid://13170652162"
-	Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-	Shadow.ImageTransparency = 0.7
-	Shadow.ScaleType = Enum.ScaleType.Slice
-	Shadow.SliceCenter = Rect.new(50, 50, 50, 50)
-	
-	-- 窗口邊框
-	local Border = Instance.new("UICorner")
-	Border.CornerRadius = UDim.new(0, 12)
-	Border.Parent = Main
-	
-	-- 毛玻璃效果層
-	local BlurLayer = createBlur(Main)
-	BlurLayer.ZIndex = 0
-	
-	-- 內容容器
-	local Content = Instance.new("Frame")
-	Content.Name = "Content"
-	Content.Parent = Main
-	Content.BackgroundTransparency = 1
-	Content.Size = UDim2.new(1, -20, 1, -20)
-	Content.Position = UDim2.new(0, 10, 0, 10)
-	Content.ZIndex = 2
-	
-	-- 左側邊欄
-	local Sidebar = Instance.new("Frame")
-	Sidebar.Name = "Sidebar"
-	Sidebar.Parent = Content
-	Sidebar.BackgroundColor3 = colors.Background
-	Sidebar.BackgroundTransparency = 0.2
-	Sidebar.BorderSizePixel = 0
-	Sidebar.Size = UDim2.new(0, 140, 1, 0)
-	
-	local SidebarCorner = Instance.new("UICorner")
-	SidebarCorner.CornerRadius = UDim.new(0, 10)
-	SidebarCorner.Parent = Sidebar
-	
-	-- 標題
-	local Title = Instance.new("TextLabel")
-	Title.Name = "Title"
-	Title.Parent = Sidebar
-	Title.BackgroundTransparency = 1
-	Title.Size = UDim2.new(1, -20, 0, 40)
-	Title.Position = UDim2.new(0, 10, 0, 10)
-	Title.Font = Enum.Font.GothamBold
-	Title.Text = name or "Wind UI"
-	Title.TextColor3 = colors.PrimaryLight
-	Title.TextSize = 18
-	Title.TextXAlignment = Enum.TextXAlignment.Left
-	
-	-- 標題底線
-	local TitleUnderline = Instance.new("Frame")
-	TitleUnderline.Parent = Title
-	TitleUnderline.BackgroundColor3 = colors.Primary
-	TitleUnderline.BorderSizePixel = 0
-	TitleUnderline.Size = UDim2.new(1, 0, 0, 2)
-	TitleUnderline.Position = UDim2.new(0, 0, 1, 5)
-	
-	local UnderlineCorner = Instance.new("UICorner")
-	UnderlineCorner.CornerRadius = UDim.new(0, 2)
-	UnderlineCorner.Parent = TitleUnderline
-	
-	-- 選項卡按鈕容器
-	local TabButtons = Instance.new("ScrollingFrame")
-	TabButtons.Name = "TabButtons"
-	TabButtons.Parent = Sidebar
-	TabButtons.BackgroundTransparency = 1
-	TabButtons.BorderSizePixel = 0
-	TabButtons.Position = UDim2.new(0, 0, 0, 60)
-	TabButtons.Size = UDim2.new(1, 0, 1, -70)
-	TabButtons.CanvasSize = UDim2.new(0, 0, 0, 0)
-	TabButtons.ScrollBarThickness = 3
-	TabButtons.ScrollBarImageColor3 = colors.Primary
-	TabButtons.ScrollBarImageTransparency = 0.5
-	
-	local TabList = Instance.new("UIListLayout")
-	TabList.Parent = TabButtons
-	TabList.SortOrder = Enum.SortOrder.LayoutOrder
-	TabList.Padding = UDim.new(0, 8)
-	
-	TabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		TabButtons.CanvasSize = UDim2.new(0, 0, 0, TabList.AbsoluteContentSize.Y + 10)
-	end)
-	
-	-- 右側內容區域
-	local TabContent = Instance.new("Frame")
-	TabContent.Name = "TabContent"
-	TabContent.Parent = Content
-	TabContent.BackgroundTransparency = 1
-	TabContent.Position = UDim2.new(0, 150, 0, 0)
-	TabContent.Size = UDim2.new(1, -160, 1, 0)
-	
-	-- 關閉按鈕
-	local CloseButton = Instance.new("ImageButton")
-	CloseButton.Name = "CloseButton"
-	CloseButton.Parent = Content
-	CloseButton.BackgroundTransparency = 1
-	CloseButton.Size = UDim2.new(0, 24, 0, 24)
-	CloseButton.Position = UDim2.new(1, -30, 0, 5)
-	CloseButton.Image = "rbxassetid://10747371466"
-	CloseButton.ImageColor3 = colors.TextSecondary
-	
-	CloseButton.MouseButton1Click:Connect(function()
-		Main.Visible = false
-	end)
-	
-	CloseButton.MouseEnter:Connect(function()
-		Tween(CloseButton, 0.2, { ImageColor3 = colors.Danger }, { Style = "Quart", Direction = "Out" })
-	end)
-	
-	CloseButton.MouseLeave:Connect(function()
-		Tween(CloseButton, 0.2, { ImageColor3 = colors.TextSecondary }, { Style = "Quart", Direction = "Out" })
-	end)
-	
-	-- 拖拽功能
-	drag(Main, Title)
-	
-	-- 快捷鍵
-	userInputService.InputBegan:Connect(function(input)
-		if input.KeyCode == Enum.KeyCode.LeftControl and not userInputService:GetFocusedTextBox() then
-			Main.Visible = not Main.Visible
-		end
-	end)
-	
-	-- 窗口方法
-	local window = {}
-	
-	function window:Tab(name, icon)
-		local TabButton = Instance.new("Frame")
-		TabButton.Name = "TabButton_" .. name
-		TabButton.Parent = TabButtons
-		TabButton.BackgroundColor3 = colors.Surface
-		TabButton.BackgroundTransparency = 0.5
-		TabButton.BorderSizePixel = 0
-		TabButton.Size = UDim2.new(1, -10, 0, 36)
-		
-		local ButtonCorner = Instance.new("UICorner")
-		ButtonCorner.CornerRadius = UDim.new(0, 8)
-		ButtonCorner.Parent = TabButton
-		
-		local ButtonIcon = Instance.new("ImageLabel")
-		ButtonIcon.Name = "Icon"
-		ButtonIcon.Parent = TabButton
-		ButtonIcon.BackgroundTransparency = 1
-		ButtonIcon.Size = UDim2.new(0, 20, 0, 20)
-		ButtonIcon.Position = UDim2.new(0, 8, 0.5, -10)
-		ButtonIcon.Image = "rbxassetid://" .. (icon or "7072725342")
-		ButtonIcon.ImageColor3 = colors.TextSecondary
-		
-		local ButtonText = Instance.new("TextLabel")
-		ButtonText.Name = "Text"
-		ButtonText.Parent = TabButton
-		ButtonText.BackgroundTransparency = 1
-		ButtonText.Size = UDim2.new(1, -36, 1, 0)
-		ButtonText.Position = UDim2.new(0, 32, 0, 0)
-		ButtonText.Font = Enum.Font.GothamSemibold
-		ButtonText.Text = name
-		ButtonText.TextColor3 = colors.TextSecondary
-		ButtonText.TextSize = 14
-		ButtonText.TextXAlignment = Enum.TextXAlignment.Left
-		
-		local Button = Instance.new("TextButton")
-		Button.Name = "Button"
-		Button.Parent = TabButton
-		Button.BackgroundTransparency = 1
-		Button.Size = UDim2.new(1, 0, 1, 0)
-		Button.Text = ""
-		
-		-- 選項卡內容
-		local TabPage = Instance.new("ScrollingFrame")
-		TabPage.Name = "Tab_" .. name
-		TabPage.Parent = TabContent
-		TabPage.BackgroundTransparency = 1
-		TabPage.BorderSizePixel = 0
-		TabPage.Size = UDim2.new(1, 0, 1, 0)
-		TabPage.Visible = false
-		TabPage.ScrollBarThickness = 3
-		TabPage.ScrollBarImageColor3 = colors.Primary
-		TabPage.CanvasSize = UDim2.new(0, 0, 0, 0)
-		
-		local PageList = Instance.new("UIListLayout")
-		PageList.Parent = TabPage
-		PageList.SortOrder = Enum.SortOrder.LayoutOrder
-		PageList.Padding = UDim.new(0, 10)
-		PageList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		
-		PageList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-			TabPage.CanvasSize = UDim2.new(0, 0, 0, PageList.AbsoluteContentSize.Y + 10)
-		end)
-		
-		-- 按鈕點擊效果
-		Button.MouseButton1Click:Connect(function()
-			Ripple(Button)
-			switchTab({ TabButton, TabPage })
-		end)
-		
-		Button.MouseEnter:Connect(function()
-			if library.currentTab and library.currentTab[1] ~= TabButton then
-				Tween(ButtonText, 0.2, { TextColor3 = colors.Text }, { Style = "Quart", Direction = "Out" })
-				Tween(ButtonIcon, 0.2, { ImageColor3 = colors.Text }, { Style = "Quart", Direction = "Out" })
-			end
-		end)
-		
-		Button.MouseLeave:Connect(function()
-			if library.currentTab and library.currentTab[1] ~= TabButton then
-				Tween(ButtonText, 0.2, { TextColor3 = colors.TextSecondary }, { Style = "Quart", Direction = "Out" })
-				Tween(ButtonIcon, 0.2, { ImageColor3 = colors.TextSecondary }, { Style = "Quart", Direction = "Out" })
-			end
-		end)
-		
-		if library.currentTab == nil then
-			switchTab({ TabButton, TabPage })
-		end
-		
-		local tab = {}
-		
-		function tab:Section(name, open)
-			local Section = Instance.new("Frame")
-			Section.Name = "Section_" .. name
-			Section.Parent = TabPage
-			Section.BackgroundColor3 = colors.Surface
-			Section.BackgroundTransparency = 0.3
-			Section.BorderSizePixel = 0
-			Section.Size = UDim2.new(0.98, 0, 0, 40)
-			Section.ClipsDescendants = true
-			
-			local SectionCorner = Instance.new("UICorner")
-			SectionCorner.CornerRadius = UDim.new(0, 10)
-			SectionCorner.Parent = Section
-			
-			-- 區域標題
-			local SectionTitle = Instance.new("TextLabel")
-			SectionTitle.Name = "Title"
-			SectionTitle.Parent = Section
-			SectionTitle.BackgroundTransparency = 1
-			SectionTitle.Size = UDim2.new(1, -40, 0, 40)
-			SectionTitle.Position = UDim2.new(0, 40, 0, 0)
-			SectionTitle.Font = Enum.Font.GothamBold
-			SectionTitle.Text = name
-			SectionTitle.TextColor3 = colors.Text
-			SectionTitle.TextSize = 16
-			SectionTitle.TextXAlignment = Enum.TextXAlignment.Left
-			
-			-- 折疊圖標
-			local ToggleIcon = Instance.new("ImageLabel")
-			ToggleIcon.Name = "ToggleIcon"
-			ToggleIcon.Parent = SectionTitle
-			ToggleIcon.BackgroundTransparency = 1
-			ToggleIcon.Size = UDim2.new(0, 24, 0, 24)
-			ToggleIcon.Position = UDim2.new(0, -32, 0, 8)
-			ToggleIcon.Image = "rbxassetid://10709787864"
-			ToggleIcon.ImageColor3 = colors.Primary
-			ToggleIcon.Rotation = open and 90 or 0
-			
-			local ToggleButton = Instance.new("TextButton")
-			ToggleButton.Name = "ToggleButton"
-			ToggleButton.Parent = Section
-			ToggleButton.BackgroundTransparency = 1
-			ToggleButton.Size = UDim2.new(0, 40, 0, 40)
-			ToggleButton.Text = ""
-			
-			-- 區域內容
-			local SectionContent = Instance.new("Frame")
-			SectionContent.Name = "Content"
-			SectionContent.Parent = Section
-			SectionContent.BackgroundTransparency = 1
-			SectionContent.Position = UDim2.new(0, 10, 0, 45)
-			SectionContent.Size = UDim2.new(1, -20, 0, 0)
-			
-			local ContentList = Instance.new("UIListLayout")
-			ContentList.Parent = SectionContent
-			ContentList.SortOrder = Enum.SortOrder.LayoutOrder
-			ContentList.Padding = UDim.new(0, 8)
-			ContentList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-			
-			local isOpen = open or false
-			Section.Size = UDim2.new(0.98, 0, 0, isOpen and 45 + ContentList.AbsoluteContentSize.Y or 40)
-			
-			ContentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-				if isOpen then
-					Section.Size = UDim2.new(0.98, 0, 0, 45 + ContentList.AbsoluteContentSize.Y)
-				end
-			end)
-			
-			ToggleButton.MouseButton1Click:Connect(function()
-				isOpen = not isOpen
-				Tween(ToggleIcon, 0.2, { Rotation = isOpen and 90 or 0 }, { Style = "Quart", Direction = "Out" })
-				Tween(Section, 0.25, {
-					Size = UDim2.new(0.98, 0, 0, isOpen and 45 + ContentList.AbsoluteContentSize.Y or 40)
-				}, { Style = "Quart", Direction = "Out" })
-			end)
-			
-			local section = {}
-			
-			function section:Button(text, callback)
-				local ButtonFrame = Instance.new("Frame")
-				ButtonFrame.Name = "Button_" .. text
-				ButtonFrame.Parent = SectionContent
-				ButtonFrame.BackgroundColor3 = colors.Background
-				ButtonFrame.BackgroundTransparency = 0.5
-				ButtonFrame.BorderSizePixel = 0
-				ButtonFrame.Size = UDim2.new(1, 0, 0, 35)
-				
-				local ButtonCorner = Instance.new("UICorner")
-				ButtonCorner.CornerRadius = UDim.new(0, 8)
-				ButtonCorner.Parent = ButtonFrame
-				
-				local ButtonText = Instance.new("TextLabel")
-				ButtonText.Parent = ButtonFrame
-				ButtonText.BackgroundTransparency = 1
-				ButtonText.Size = UDim2.new(1, -10, 1, 0)
-				ButtonText.Position = UDim2.new(0, 10, 0, 0)
-				ButtonText.Font = Enum.Font.GothamSemibold
-				ButtonText.Text = text
-				ButtonText.TextColor3 = colors.Text
-				ButtonText.TextSize = 14
-				ButtonText.TextXAlignment = Enum.TextXAlignment.Left
-				
-				local Button = Instance.new("TextButton")
-				Button.Parent = ButtonFrame
-				Button.BackgroundTransparency = 1
-				Button.Size = UDim2.new(1, 0, 1, 0)
-				Button.Text = ""
-				
-				Button.MouseButton1Click:Connect(function()
-					Ripple(ButtonFrame)
-					if callback then callback() end
-				end)
-				
-				Button.MouseEnter:Connect(function()
-					Tween(ButtonFrame, 0.2, { BackgroundColor3 = colors.Primary }, { Style = "Quart", Direction = "Out" })
-				end)
-				
-				Button.MouseLeave:Connect(function()
-					Tween(ButtonFrame, 0.2, { BackgroundColor3 = colors.Background }, { Style = "Quart", Direction = "Out" })
-				end)
-			end
-			
-			function section:Toggle(text, flag, default, callback)
-				local ToggleFrame = Instance.new("Frame")
-				ToggleFrame.Name = "Toggle_" .. text
-				ToggleFrame.Parent = SectionContent
-				ToggleFrame.BackgroundColor3 = colors.Background
-				ToggleFrame.BackgroundTransparency = 0.5
-				ToggleFrame.BorderSizePixel = 0
-				ToggleFrame.Size = UDim2.new(1, 0, 0, 35)
-				
-				local ToggleCorner = Instance.new("UICorner")
-				ToggleCorner.CornerRadius = UDim.new(0, 8)
-				ToggleCorner.Parent = ToggleFrame
-				
-				local ToggleText = Instance.new("TextLabel")
-				ToggleText.Parent = ToggleFrame
-				ToggleText.BackgroundTransparency = 1
-				ToggleText.Size = UDim2.new(1, -50, 1, 0)
-				ToggleText.Position = UDim2.new(0, 10, 0, 0)
-				ToggleText.Font = Enum.Font.GothamSemibold
-				ToggleText.Text = text
-				ToggleText.TextColor3 = colors.Text
-				ToggleText.TextSize = 14
-				ToggleText.TextXAlignment = Enum.TextXAlignment.Left
-				
-				local ToggleSwitch = Instance.new("Frame")
-				ToggleSwitch.Parent = ToggleFrame
-				ToggleSwitch.BackgroundColor3 = colors.Surface
-				ToggleSwitch.BorderSizePixel = 0
-				ToggleSwitch.Size = UDim2.new(0, 40, 0, 20)
-				ToggleSwitch.Position = UDim2.new(1, -50, 0.5, -10)
-				
-				local SwitchCorner = Instance.new("UICorner")
-				SwitchCorner.CornerRadius = UDim.new(1, 0)
-				SwitchCorner.Parent = ToggleSwitch
-				
-				local SwitchKnob = Instance.new("Frame")
-				SwitchKnob.Parent = ToggleSwitch
-				SwitchKnob.BackgroundColor3 = colors.Text
-				SwitchKnob.BorderSizePixel = 0
-				SwitchKnob.Size = UDim2.new(0, 16, 0, 16)
-				SwitchKnob.Position = UDim2.new(0, 2, 0.5, -8)
-				
-				local KnobCorner = Instance.new("UICorner")
-				KnobCorner.CornerRadius = UDim.new(1, 0)
-				KnobCorner.Parent = SwitchKnob
-				
-				local Button = Instance.new("TextButton")
-				Button.Parent = ToggleFrame
-				Button.BackgroundTransparency = 1
-				Button.Size = UDim2.new(1, 0, 1, 0)
-				Button.Text = ""
-				
-				local state = default or false
-				library.flags[flag] = state
-				
-				local function updateToggle()
-					if state then
-						Tween(ToggleSwitch, 0.2, { BackgroundColor3 = colors.Primary }, { Style = "Quart", Direction = "Out" })
-						Tween(SwitchKnob, 0.2, { Position = UDim2.new(0, 22, 0.5, -8) }, { Style = "Quart", Direction = "Out" })
-					else
-						Tween(ToggleSwitch, 0.2, { BackgroundColor3 = colors.Surface }, { Style = "Quart", Direction = "Out" })
-						Tween(SwitchKnob, 0.2, { Position = UDim2.new(0, 2, 0.5, -8) }, { Style = "Quart", Direction = "Out" })
-					end
-				end
-				
-				updateToggle()
-				
-				Button.MouseButton1Click:Connect(function()
-					state = not state
-					library.flags[flag] = state
-					updateToggle()
-					if callback then callback(state) end
-				end)
-				
-				return {
-					Set = function(_, newState)
-						state = newState
-						library.flags[flag] = state
-						updateToggle()
-						if callback then callback(state) end
-					end
-				}
-			end
-			
-			function section:Slider(text, flag, default, min, max, callback)
-				local min = min or 0
-				local max = max or 100
-				local value = default or min
-				library.flags[flag] = value
-				
-				local SliderFrame = Instance.new("Frame")
-				SliderFrame.Name = "Slider_" .. text
-				SliderFrame.Parent = SectionContent
-				SliderFrame.BackgroundColor3 = colors.Background
-				SliderFrame.BackgroundTransparency = 0.5
-				SliderFrame.BorderSizePixel = 0
-				SliderFrame.Size = UDim2.new(1, 0, 0, 45)
-				
-				local SliderCorner = Instance.new("UICorner")
-				SliderCorner.CornerRadius = UDim.new(0, 8)
-				SliderCorner.Parent = SliderFrame
-				
-				local SliderText = Instance.new("TextLabel")
-				SliderText.Parent = SliderFrame
-				SliderText.BackgroundTransparency = 1
-				SliderText.Size = UDim2.new(1, -80, 0, 20)
-				SliderText.Position = UDim2.new(0, 10, 0, 5)
-				SliderText.Font = Enum.Font.GothamSemibold
-				SliderText.Text = text
-				SliderText.TextColor3 = colors.Text
-				SliderText.TextSize = 14
-				SliderText.TextXAlignment = Enum.TextXAlignment.Left
-				
-				local ValueLabel = Instance.new("TextLabel")
-				ValueLabel.Parent = SliderFrame
-				ValueLabel.BackgroundColor3 = colors.Surface
-				ValueLabel.BackgroundTransparency = 0.5
-				ValueLabel.BorderSizePixel = 0
-				ValueLabel.Size = UDim2.new(0, 50, 0, 24)
-				ValueLabel.Position = UDim2.new(1, -60, 0, 3)
-				ValueLabel.Font = Enum.Font.GothamBold
-				ValueLabel.Text = tostring(value)
-				ValueLabel.TextColor3 = colors.PrimaryLight
-				ValueLabel.TextSize = 14
-				
-				local ValueCorner = Instance.new("UICorner")
-				ValueCorner.CornerRadius = UDim.new(0, 6)
-				ValueCorner.Parent = ValueLabel
-				
-				local SliderBar = Instance.new("Frame")
-				SliderBar.Parent = SliderFrame
-				SliderBar.BackgroundColor3 = colors.Surface
-				SliderBar.BorderSizePixel = 0
-				SliderBar.Size = UDim2.new(1, -20, 0, 6)
-				SliderBar.Position = UDim2.new(0, 10, 0, 32)
-				
-				local BarCorner = Instance.new("UICorner")
-				BarCorner.CornerRadius = UDim.new(1, 0)
-				BarCorner.Parent = SliderBar
-				
-				local FillBar = Instance.new("Frame")
-				FillBar.Parent = SliderBar
-				FillBar.BackgroundColor3 = colors.Primary
-				FillBar.BorderSizePixel = 0
-				FillBar.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
-				
-				local FillCorner = Instance.new("UICorner")
-				FillCorner.CornerRadius = UDim.new(1, 0)
-				FillCorner.Parent = FillBar
-				
-				local Knob = Instance.new("Frame")
-				Knob.Parent = FillBar
-				Knob.BackgroundColor3 = colors.Text
-				Knob.BorderSizePixel = 0
-				Knob.Size = UDim2.new(0, 12, 0, 12)
-				Knob.Position = UDim2.new(1, -6, 0.5, -6)
-				
-				local KnobCorner = Instance.new("UICorner")
-				KnobCorner.CornerRadius = UDim.new(1, 0)
-				KnobCorner.Parent = Knob
-				
-				local function updateValue(input)
-					local percent = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
-					value = math.floor(min + (max - min) * percent)
-					ValueLabel.Text = tostring(value)
-					FillBar.Size = UDim2.new(percent, 0, 1, 0)
-					library.flags[flag] = value
-					if callback then callback(value) end
-				end
-				
-				local dragging = false
-				
-				SliderBar.InputBegan:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 then
-						updateValue(input)
-						dragging = true
-					end
-				end)
-				
-				userInputService.InputChanged:Connect(function(input)
-					if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-						updateValue(input)
-					end
-				end)
-				
-				userInputService.InputEnded:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 then
-						dragging = false
-					end
-				end)
-				
-				return {
-					Set = function(_, newValue)
-						value = math.clamp(newValue, min, max)
-						local percent = (value - min) / (max - min)
-						ValueLabel.Text = tostring(value)
-						FillBar.Size = UDim2.new(percent, 0, 1, 0)
-						library.flags[flag] = value
-						if callback then callback(value) end
-					end
-				}
-			end
-			
-			return section
-		end
-		
-		return tab
-	end
-	
-	return window
-end
-
-return library
+return CustomUI
