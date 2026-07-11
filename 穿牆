@@ -1,0 +1,195 @@
+-- 穿牆模式腳本 (按 O 開關)
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local noclipEnabled = false
+local ToggleButton = nil
+local updateTargetLabel = nil
+local noclipConnection = nil
+local descendantConnection = nil
+
+-- 開啟穿牆
+local function enableNoclip()
+    local char = player.Character
+    if not char then return end
+    
+    -- 把所有部件的碰撞關掉
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    -- 監聽新加入的部件
+    descendantConnection = char.DescendantAdded:Connect(function(part)
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end)
+    
+    -- 持續確保碰撞關閉
+    noclipConnection = RunService.Heartbeat:Connect(function()
+        if not noclipEnabled then return end
+        if not player.Character then return end
+        for _, part in ipairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end)
+end
+
+-- 關閉穿牆
+local function disableNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    if descendantConnection then
+        descendantConnection:Disconnect()
+        descendantConnection = nil
+    end
+    
+    if player.Character then
+        for _, part in ipairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+-- 開關功能
+local function toggleNoclip()
+    noclipEnabled = not noclipEnabled
+    
+    if noclipEnabled then
+        if ToggleButton then
+            ToggleButton.Text = "穿牆: ON"
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+        end
+        enableNoclip()
+        print("穿牆模式: 開啟")
+    else
+        if ToggleButton then
+            ToggleButton.Text = "穿牆: OFF"
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        end
+        disableNoclip()
+        print("穿牆模式: 關閉")
+    end
+end
+
+-- ==================== UI ====================
+local function createUI()
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then
+        playerGui = player:WaitForChild("PlayerGui", 10)
+    end
+    if not playerGui then return end
+
+    if playerGui:FindFirstChild("NoclipUI") then
+        playerGui.NoclipUI:Destroy()
+    end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "NoclipUI"
+    ScreenGui.Parent = playerGui
+    ScreenGui.ResetOnSpawn = false
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 180, 0, 75)
+    Frame.Position = UDim2.new(0.5, -90, 0, 30)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Frame.BorderSizePixel = 0
+    Frame.Active = true
+    Frame.Draggable = true
+    Frame.Parent = ScreenGui
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 6)
+    UICorner.Parent = Frame
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, -30, 0, 22)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Title.Text = "穿牆模式"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 12
+    Title.Parent = Frame
+
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 22, 0, 22)
+    CloseButton.Position = UDim2.new(1, -22, 0, 0)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.TextSize = 11
+    CloseButton.Parent = Frame
+
+    ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(0, 150, 0, 28)
+    ToggleButton.Position = UDim2.new(0.5, -75, 0, 28)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    ToggleButton.Text = "穿牆: OFF"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.Font = Enum.Font.GothamBold
+    ToggleButton.TextSize = 13
+    ToggleButton.Parent = Frame
+
+    local ToggleButtonCorner = Instance.new("UICorner")
+    ToggleButtonCorner.CornerRadius = UDim.new(0, 4)
+    ToggleButtonCorner.Parent = ToggleButton
+
+    local HotkeyLabel = Instance.new("TextLabel")
+    HotkeyLabel.Size = UDim2.new(1, 0, 0, 18)
+    HotkeyLabel.Position = UDim2.new(0, 0, 0, 58)
+    HotkeyLabel.BackgroundTransparency = 1
+    HotkeyLabel.Text = "快捷鍵: O"
+    HotkeyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    HotkeyLabel.Font = Enum.Font.Gotham
+    HotkeyLabel.TextSize = 10
+    HotkeyLabel.Parent = Frame
+
+    ToggleButton.MouseButton1Click:Connect(function()
+        toggleNoclip()
+    end)
+
+    CloseButton.MouseButton1Click:Connect(function()
+        noclipEnabled = false
+        disableNoclip()
+        ScreenGui:Destroy()
+    end)
+
+    ScreenGui.Destroying:Connect(function()
+        noclipEnabled = false
+        disableNoclip()
+    end)
+end
+
+-- ==================== 鍵盤 O 開關 ====================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.O then
+        toggleNoclip()
+    end
+end)
+
+-- 初始化
+createUI()
+
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    createUI()
+    if noclipEnabled then
+        task.wait(0.5)
+        enableNoclip()
+    end
+end)
+
+print("穿牆腳本已載入")
+print("按 O 或點擊按鈕 開啟/關閉")
